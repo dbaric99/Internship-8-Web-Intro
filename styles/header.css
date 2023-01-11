@@ -5,5 +5,26 @@
   top: 0;
   left: 0;
   padding-bottom: 20px;
+  padding-top: 25px;
   border-bottom: solid 2px #777;
+}
+
+.header-main-navigation {
+  text-decoration: none;
+  font-weight: normal;
+  color: black;
+  font-size: 2rem;
+}
+
+.left-offset > h1 {
+  margin: 0;
+}
+
+.header-main-navigation:hover {
+  color: #37f;
+}
+
+.header-description-text {
+  padding-top: 5px;
+  display: block;
 }

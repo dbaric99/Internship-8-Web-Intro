@@ -1,0 +1,11 @@
+body {
+  font-family: "Open Sans", sans-serif;
+}
+
+.left-offset {
+  transform: translateX(5.7em);
+}
+
+a {
+  color: #37f;
+}
