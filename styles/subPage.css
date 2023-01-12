@@ -20,3 +20,11 @@ li {
 #sp2-header {
   font-weight: normal;
 }
+
+.text-line {
+  margin: 0;
+}
+
+#sp2-main {
+  top: 90px;
+}
