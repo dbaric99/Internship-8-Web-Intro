@@ -1,10 +1,22 @@
-footer {
-  position: absolute;
+.sp1-footer {
   top: 325px;
-  left: 0;
-  color: #555;
 }
 
 li {
   padding-bottom: 20px;
+}
+
+.sp2-footer {
+}
+
+.title {
+  font-weight: normal;
+  color: black;
+  font-size: 21px;
+  margin-top: 9px;
+  margin-bottom: 0px;
+}
+
+#sp2-header {
+  font-weight: normal;
 }

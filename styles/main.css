@@ -49,5 +49,7 @@ p {
 }
 
 footer {
-  position: relative;
+  position: absolute;
+  left: 0;
+  color: #555;
 }
