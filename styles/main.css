@@ -1,9 +1,32 @@
-body {
-  font-family: "Open Sans", sans-serif;
+@font-face {
+  font-family: "Open Sans";
+  font-style: normal;
+  font-weight: 400;
+  src: local("Open Sans"), local("OpenSans"),
+    url(https://themes.googleusercontent.com/static/fonts/opensans/v7/cJZKeOuBrn4kERxqtaUH3T8E0i7KZn-EPnyo3HZu7kw.woff),
+    url(OpenSans.woff) format("woff");
 }
 
-.left-offset {
-  transform: translateX(5.7em);
+@font-face {
+  font-family: "Open Sans";
+  font-style: normal;
+  font-weight: 700;
+  src: local("Open Sans Bold"), local("OpenSans-Bold"),
+    url(https://themes.googleusercontent.com/static/fonts/opensans/v7/k3k702ZOKiLJc3WVjuplzHhCUOGz7vYGh680lGh-uXM.woff),
+    url("OpenSans-Bold.woff") format("woff");
+}
+
+@font-face {
+  font-family: "Open Sans";
+  font-style: italic;
+  font-weight: 400;
+  src: local("Open Sans Italic"), local("OpenSans-Italic"),
+    url(https://themes.googleusercontent.com/static/fonts/opensans/v7/xjAJXh38I15wypJXxuGMBobN6UDyHWBl620a-IRfuBk.woff)
+      url("OpenSans-Italic.woff") format("woff");
+}
+
+body {
+  font-family: "Open Sans", sans-serif;
 }
 
 a {
@@ -12,9 +35,19 @@ a {
 
 main {
   position: absolute;
-  top: 100px;
+  left: 0;
+  top: 110px;
 }
 
 p {
-  line-height: 1.5em;
+  line-height: 1.5;
+  font-size: 16px;
+}
+
+.left-offset {
+  transform: translateX(85px);
+}
+
+footer {
+  position: relative;
 }

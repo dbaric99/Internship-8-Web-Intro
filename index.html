@@ -4,19 +4,20 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="./styles/header.css">
+    <link rel="stylesheet" href="./styles/mainHeader.css">
     <link rel="stylesheet" href="./styles/main.css">
+    <link rel="stylesheet" href="./styles/landingPage.css">
     <title>Tech Notes: Two surprises in browser crashes</title>
 </head>
 <body>
     <header class="header-area">
         <div class="left-offset">
             <h1>
-                <a href="" class="header-main-navigation">neugierig.org: </a>
-                <a href="" class="header-main-navigation">Tech News</a>
+                <a href="./subpages/neugierig.html" class="header-main-navigation">neugierig.org: </a>
+                <a href="" class="header-main-navigation">Tech Notes</a>
             </h1>
             <div>
-                <span class="header-description-text">
+                <span>
                     You're reading a single entry. Go 
                     <a href="">back to the front page</a>
                     for more.
@@ -26,17 +27,19 @@
     </header>
 
     <main class="left-offset">
-        <h2>Two surprises in browser crashes</h2>
-        <span>January 04, 2023</span>
+        <h2 class="sub-title">
+            <a href="">Two surprises in browser crashes</a>
+        </h2>
+        <span class="publish-date">January 04, 2023</span>
 
         <p>
             You might be surprised, as I was, to learn that Chrome exposes an API to notify you when<br>
-            the browser crashes on your page. It is part of a larger <a href="">reporting API</a> that is designed to give <br>
+            the browser crashes on your page. It is part of a larger <a href="https://devdocs.io/dom/reporting_api">reporting API</a> that is designed to give <br>
             browsers a channel to inform you, the developer, of crashes and other things.
         </p>
         <p>
             In particular for a page crash you no longer have a page or JS context to receive the event,<br>
-            so the API instead POSTs some JSON to a URL you provide. Per usual there were <a href="">two slightly<br>incompatible versions of the API</a>, I imagine as they attemped to standardize. (I do not know<br>
+            so the API instead POSTs some JSON to a URL you provide. Per usual there were <a href="https://developer.chrome.com/blog/reporting-api-migration/">two slightly<br>incompatible versions of the API</a>, I imagine as they attemped to standardize. (I do not know<br>
             a lot about this space but it appears all of this is Chrome-only for now...)
         </p>
         <p>
@@ -61,7 +64,7 @@
         </p>
         <p>
             From this I took away an important lesson: even when your app is not pushing the<br>
-            boundaries of browsers, monitoring for crashes is probably worth it. <a href="">Read this overview</a> to<br>
+            boundaries of browsers, monitoring for crashes is probably worth it. <a href="https://developer.chrome.com/articles/reporting-api/">Read this overview</a> to<br>
             get started; I believe it's as simple as providing <code>default</code> endpoint in an HTTP header and<br>
             accepting POSTs there.
         </p>

@@ -5,7 +5,7 @@
   top: 0;
   left: 0;
   padding-bottom: 20px;
-  padding-top: 25px;
+  padding-top: 17px;
   border-bottom: solid 2px #777;
 }
 
@@ -13,7 +13,7 @@
   text-decoration: none;
   font-weight: normal;
   color: black;
-  font-size: 2rem;
+  font-size: 32px;
 }
 
 .left-offset > h1 {
@@ -22,9 +22,4 @@
 
 .header-main-navigation:hover {
   color: #37f;
-}
-
-.header-description-text {
-  padding-top: 5px;
-  display: block;
 }

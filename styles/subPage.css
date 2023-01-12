@@ -1,0 +1,10 @@
+footer {
+  position: absolute;
+  top: 325px;
+  left: 0;
+  color: #555;
+}
+
+li {
+  padding-bottom: 20px;
+}
