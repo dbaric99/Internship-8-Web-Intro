@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2>JavaScript minification</h2>
+        <span>April 24, 2019</span>
+      </div>
+
+      <p>
+        JavaScript applications are written as a collection of
+        <code>.js</code> files that are usually transformed before being served
+        in a browser. One reason to transform is to improve page load time.
+        There are two primary components to improving page load time:
+        <em>bundling</em> multiple files together, and <em>minifying</em> to
+        make the bundle size smaller.
+      </p>
+      <p>
+        This post walks through why we do these and what the implications are
+        for doing such a thing, and concludes with a few projects I've been
+        working on to improve this space (spoiler: comparitive benchmarks).
+      </p>
+      <p>
+        <strong>Bundling</strong> is the process of taking multiple
+        <code>.js</code> files and producing one. If the <code>.js</code> files
+        are independent, or if they refer to one another via global variables,
+        it's as easy as concatenating the files together. But usually the files
+        will use some sort of module system that involves <code>import</code> or
+        <code>require</code> statements that will need to be transformed to work
+        as a single file, often with the support of a module loader library.
+      </p>
+      <p>
+        Why do we bundle? Otherwise the browser must request each file
+        separately and that can be slow. (You might have read that HTTP/2 solves
+        this. It can help but it does not eliminate the cost; see for example
+        <a
+          href="http://engineering.khanacademy.org/posts/js-packaging-http2.htm"
+          >Khan academy's analysis</a
+        >.)
+      </p>
+      <p>
+        <strong>Minifying</strong> or <strong>optimizing</strong> is the process
+        that transforms a file into an equivalent file that does the same thing
+        using fewer bytes. Minification can be as simple as removing whitespace,
+        or replacing the expression <code>true</code> with the shorter
+        <code>!0</code>. More sophisticated tools will rename variables to use
+        shorter names, delete code that is unused (which is called
+        <em>dead code removal</em> or sometimes <em>tree shaking</em>), or
+        rewrite algorithms.
+      </p>
+      <p>
+        Why do we minify? File size has a cost when transferred over the
+        network, in which case the compressed size of the file matters. The
+        uncompressed size also matters because that is the quantity of data the
+        browser must parse and keep in memory. Simplifying or deleting unused
+        code reduces the quantity of code the browser must download and
+        evaluate.
+      </p>
+      <p>
+        These transformations improve JavaScript load performance beyond
+        browsers. Even if the JavaScript files are already available on the
+        user's local machine, opening and evaluating them has a cost. Large
+        client-side apps like Visual Studio Code use these techniques for the
+        same performance reasons you use them in a browser.
+      </p>
+      <h3>Bundling/minification tools</h3>
+      <p>
+        Though I've described them as separate concepts, bundling and
+        minification interact and are not clearly layered. For example, an
+        optimizer that inlines code must be able to see all modules to inline
+        code across modules. Typical programs that vaguely handle bundling
+        include webpack, browserify, and rollup; the typical minifier is
+        uglifyjs/terser. But note that e.g.
+        <a
+          href="https://webpack.js.org/configuration/optimization/#optimizationconcatenatemodules"
+          >webpack can inline modules</a
+        >, and rollup can remove some dead code.
+      </p>
+      <p>
+        The most aggressive tool in this space is
+        <a href="https://developers.google.com/closure/compiler/"
+          >Google's Closure Compiler</a
+        >, which covers both of these roles. I wrote before about how
+        <a href=""
+          >it predates many of these other tools and consequently is
+          incompatible with most of them</a
+        >. Due to its age and lineage it's had years of optimization work poured
+        into it.
+      </p>
+      <p>
+        In practice because these two tasks are intertwined, the remainder of
+        the post just calls both minification.
+      </p>
+      <h3>Transformation is unsafe</h3>
+      <p>
+        I wrote that minification produces an "equivalent" program, but that is
+        not quite accurate. In the limit, any transformation is unsafe because
+        it changes the program, and JavaScript is dynamic enough that almost any
+        program change can break the program.
+      </p>
+      <p>
+        For a warmup, note that it's unsafe even to just delete whitespace! On
+        any function you can call <code>.toString()</code> to get the source
+        code of the function, so it's legitimate (though strange) for a program
+        to do something like:
+      </p>
+      <pre><code>assertEqual(myFunction.toString().charAt(34), 'a');
+        </code></pre>
+      <p>and deleting whitespace will break this code.</p>
+      <p>
+        For a less pathological example, a program might call
+        <code>someFunction.name</code> and expect a specific name, which breaks
+        if the minifier changes function names (or looks them up via eval, or
+        one of many other techniques). Or code might look up a method by string
+        manipulation:
+      </p>
+      <pre><code>function onClick(elem) {
+          someObject[‘on' + elem.someProperty]();
+        }
+        </code></pre>
+      <p>
+        Another example: is it safe for a compiler to delete this code, which
+        appears to do nothing? (Such code might be the result of applying other
+        optimizations, such as removing unused variables.)
+      </p>
+      <pre><code>foo.x;
+        </code></pre>
+      <p>
+        Again, it can be unsafe: JavaScript getters can have side effects, and
+        in fact the popular Chai testing library relies on them for its (in my
+        opinion needlessly cute)
+        <a href="https://www.chaijs.com/api/bdd/#method_null"
+          >assertion syntax</a
+        >.
+      </p>
+      <p>
+        One last example: a program might declare a function
+        <code>foobar</code> that appears to never be used, but then at runtime
+        it might fetch more JavaScript via a network request, and that fetched
+        JavaScript might then call <code>foobar()</code>. A minifier that
+        deletes apparently-unused code will break this program. (For this
+        reason, Closure Compiler's support for code splitting requires giving
+        the compiler all the code as compile time, even the code that isn't part
+        of the initial bundle.)
+      </p>
+      <p>
+        In all, for a given program it's difficult to predict which properties
+        it relies on. For example,
+        <a
+          href="http://www.codelord.net/2015/11/18/the-deal-with-angular-and-minification/"
+          >AngularJS sometimes relies</a
+        >
+        on the specific <em>names</em> given to function arguments.
+      </p>
+      <p>
+        The above examples were meant to demonstrate how hard it is to be sure,
+        but in practice there are many transformations that are almost certainly
+        safe for all programs, such as removing curly braces from one-liner
+        <code>if</code> statements. On the other hand, such transformations only
+        remove a few bytes, while more aggressive optimizations are capable of
+        eliminating whole functions and modules.
+      </p>
+      <h3>Minifiers as language variants</h3>
+      <p>
+        Though it's not usually described in these terms, another way to look at
+        bundlers/minifiers is that they are programs that only operate correctly
+        on a <em>subset</em> of the full JavaScript language. A
+        whitespace-deleting minifier operates correctly on programs that don't
+        rely on specific source text or line numbers, while a function-renaming
+        minifier operates correctly on programs that don't use
+        <code>Function.name</code>. Rollup's tree shaking only works with code
+        that uses the ES module subset of JavaScript.
+      </p>
+      <p>
+        In fact, it's often difficult to enumerate the sorts of programs that
+        satisfy or break the rules of a specific minification. For example
+        uglify has a notion of a “pure” function that it handles specially, but
+        <a href="https://twitter.com/radokirov/status/1097325661658570752"
+          >in general nobody is really sure what “pure” means</a
+        >. Because of this, these tools often end up with many configuration
+        options to try to let individual apps “carve out” the specific rules
+        they obey. Closure Compiler in particular is worth calling out because
+        it is is likely the most finicky in this respect, where it's relatively
+        easy to let it "optimize" a program into a form that no longer works.
+      </p>
+      <p>
+        What you gain by working against a JavaScript subset is even smaller
+        output. Within Google, apps that are carefully written to the Closure
+        dialect of JavaScript use Closure Compiler to reduce literally tens of
+        megabytes of source code JavaScript into tiny bundles.
+      </p>
+      <h3>Whole program optimization</h3>
+      <p>
+        Traditionally a given library/framework will perform its own
+        bundle/minify step and then distribute a single
+        <code>.min.js</code> file for users to include in their apps. But this
+        is optimizing at the wrong layer. A better approach is to feed all code
+        — both libraries and your app — into a single bundler and minifier pass
+        so that it can optimize through all the code. In such a layout, the
+        minifier can then for example delete parts of the library that your app
+        doesn't use.
+      </p>
+      <p>
+        I believe this approach is taken by Angular2+ and Polymer, which no
+        longer publish minified versions of the libraries under the expectation
+        that the user's build process will do the final minification. Closure
+        compiler, which is very aggressive about deleting dead code, also
+        expects to see all the code used in your program.
+      </p>
+      <h3>Minifiers and types</h3>
+      <p>
+        Consider the problem of determining whether it's safe to change a
+        function's name. One idea is that a
+        <a href="http://wiki.c2.com/?SufficientlySmartCompiler"
+          >sufficiently smart compiler</a
+        >
+        could examine the program and determine whether the function's name is
+        relevant to the program's execution. (It's larger than just
+        <code>Function.name</code> — consider for example a class method that is
+        then overridden in a dynamically-generated subclass.)
+      </p>
+      <p>
+        This problem of identifying references feels deeply related to type
+        systems, and Closure Compiler relies on type information for some of its
+        optimizations, but I believe the programmer-oriented type systems
+        currently found in Closure Compiler or TypeScript don't cover all the
+        analysis required. It's also vaguely connected the sorts of alias
+        analysis found in the compiler literature. (There are some interesting
+        papers written about the optimizing the Self programming language that
+        are pretty relevant here.) I have a lot of ideas in this space but no
+        time to look into them.
+      </p>
+      <p>
+        And ultimately no tool can solve the runtime-loaded invocation of
+        <code>foobar()</code> case described above without the programmer's
+        assistance.
+      </p>
+      <h3>Comparing minifiers</h3>
+      <p>
+        I have been thinking about all of the above because I had been toying
+        with writing
+        <a href="https://github.com/evmar/j8t"
+          >a JavaScript minifier of my own, called j8t</a
+        >. I didn't expect it to go far, but sometimes the best way to
+        understand a problem space is to try to implement something so you can
+        experience all the corners. It was a lot of fun staring at the JS spec
+        to write my own parser.
+      </p>
+      <p>
+        But what I discovered is that it's relatively easy to make a program
+        that transforms JavaScript, and very hard to decide whether the
+        transformation it performed was correct! Ultimately the only way to
+        decide is to say: for a specific program X, if you transform it into
+        some program X', does the program still work? And then defining whether
+        a program “works” or not is itself tricky. For example, at one point in
+        my experimentation my minifier produced a smaller app that looked like
+        everything was fine until I discovered it had broken one minor feature.
+      </p>
+      <p>
+        In the meantime, others have started on similar projects (e.g.
+        <a href="https://github.com/swc-project/swc">swc</a>) and I realized
+        they must have the same problem.
+      </p>
+      <p>
+        What we really need, I decided, was a suite of programs that can be
+        transformed and then retested with end-to-end tests. These programs need
+        to be written using different frameworks and in different styles to
+        understand which tools improve or break which programs. And it needs to
+        be exactly reproducible, so minifier developers can take the suite and
+        attempt to improve their relative scores.
+      </p>
+      <p>
+        And so I present
+        <a href="https://evmar.github.io/js-min-bench">js-min-bench</a>, a step
+        towards that. In the repo there are specific input programs along with
+        configurations of different tools, and a runner that runs the programs
+        against all the tools, runs test suites against those transformed
+        programs, and finally presents the results in a big table.
+      </p>
+      <p>Here are some major caveats:</p>
+      <ul>
+        <li>
+          <p>
+            I initially overlooked the problem of testing the results, so many
+            of the inputs are just libraries rather than the whole program+tests
+            I recommend here. They are marked with a warning sign in the output.
+          </p>
+        </li>
+        <li>
+          <p>
+            I have no inputs that are written to work well under Closure.
+            Despite that it still wins on some inputs, but I expect code that
+            targets Closure directly will show the greatest benefit.
+          </p>
+        </li>
+      </ul>
+      <h3>Postscript: code size ultimately requires systemic solutions</h3>
+      <p>
+        All approaches to minification take a large program and attempt to make
+        it smaller. The easiest code to optimize is the code that doesn't exist
+        in the first place. If the program wasn't so large to begin with, then
+        minification wouldn't be as important.
+      </p>
+      <p>
+        Within Google my experience has been that people have paid a lot of
+        attention to smart tools but not as much attention to smarter choices
+        about dependency size. I have two main problems with smarter tools.
+      </p>
+      <p>
+        One is that smart tools often don't give the user good insight into
+        whether or why a given optimization worked or didn't. A seemingly
+        innocuous change might end up having a large impact on the output bundle
+        size because the code crossed some arbitrary compiler heuristic, and as
+        a user of the compiler you don't often have good resources for figuring
+        out what happened.
+      </p>
+      <p>
+        The other problem with smart tools is that no matter how small your
+        final output is, your build time is still proportional to the total size
+        of the inputs you provide. As your tools get smarter, it allows your
+        inputs to get larger, and compilation gets ever slower.
+      </p>
+      <p>
+        So while I still think it's wise to use the minification tools we have,
+        I am less enthusiastic about making them more sophisticated, and I think
+        a better approach is trying to rein in dependencies. To use some
+        self-serving analogies: it's better to live a healthy lifestyle than to
+        develop fancier medicines, or maybe: it's better to drive less than to
+        develop more fuel-efficient cars. But we can still invest in both.
+      </p>
+      <p>
+        In the public JavaScript world, the tool
+        <a href="https://www.npmjs.com/package/source-map-explorer"
+          >source-map-explorer</a
+        >
+        can be useful for tracking down where all the bytes are coming from.
+        (Shameless self promotion: I wrote
+        <a href="https://github.com/evmar/webtreemap">the treemap widget</a>
+        used there.)
+      </p>
+    </main>
+  </body>
+</html>

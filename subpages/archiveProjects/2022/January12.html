@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tech Notes: Two surprises in browser crashes</title>
+</head>
+<body>
+    
+    <header>
+        <div>
+            <h1>
+                <a href="./subpages/neugierig.html">neugierig.org: </a>
+                <a href="">Tech Notes</a>
+            </h1>
+            <div>
+                <span>
+                    You're reading a single entry. Go <a href="../blog.html">back to the front page</a> for more.
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div>
+            <h2>Rethinking errors, warnings, and lints</h2>
+            <span>January 12, 2022</span>
+        </div>
+
+        <p>
+            Programming language ecosystems often involve tools that process code and
+            produce errors or warnings, such as compilers and linters. Different programmers
+            have widely different opinions on how to treat these systems. This culminates in
+            disagreements around questions like: Should I treat all warnings as errors? Why
+            is X an error and not a warning? Can I ignore lint warnings?
+        </p>
+
+        <p>
+            In this post I aim to give you a framework for how to reason about these
+            systematically, with lessons learned from my recent years of work on programming
+            language tooling for thousands of engineers at Google.
+        </p>
+
+        <p>
+            To begin with, we need to reset your biases, and to do so let's make up new
+            words just for the duration of this post. Let's say a compiler/linter/static
+            analysis/etc executes <em>checks</em> which can identify <em>problems</em> in code.
+        </p>
+
+        <p>
+            Here are some examples of some checks I've seen, just to ensure we're more or
+            less on the same page:
+        </p>
+
+        <div>
+            <ul>
+                <li>does the code have a type error?</li>
+                <li>does the code have an unused import, variable, function parameter, ...?</li>
+                <li>does the code use a dangerous language feature?</li>
+                <li>does the code use a deprecated API?</li>
+                <li>does the code use a string without localizing it?</li>
+                <li>does the code use a suspicious pattern, such as calling a function without
+                using the return value?</li>
+                <li>does the code change something that needs an accompanying change elsewhere?
+                (e.g. keeping two lists in sync)</li>
+                <li>does the code need more comments?</li>
+                <li>is the commit message properly formatted?</li>
+            </ul>
+        </div>
+
+        <div>
+            <h2>The development cycle</h2>
+        </div>
+
+        <p>At a high level there are two purposes of checks:</p>
+
+        <div>
+            <ol>
+                <li>identify problems earlier in the development cycle;</li>
+                <li>maintain invariants, such as "the code never contains unused imports".</li>
+            </ol>
+        </div>
+
+        <p>
+            (There's potentially a third case of checks — what to do with problems like
+            syntax errors that make the program completely uninterpretable. But more on that
+            in a second.)
+        </p>
+
+        <p>
+            To elaborate on (1), the process of software development is taking code through
+            a series of <em>phases</em>:
+        </p>
+
+        <div>
+            <ol>
+                <li>edit</li>
+                <li>build</li>
+                <li>run locally</li>
+                <li>commit</li>
+                <li>deploy (e.g. release to users)</li>
+                <li>execute remotely (e.g. on server or on user's machine)</li>
+            </ol>
+        </div>
+
+        <p>
+            We programmers loop through each of these — we edit many more times than build,
+            build more often than we run, run more often than we commit, and so on. At each
+            phase, discovering a problem is more costly than discovering it at an earlier
+            one, up to orders of magnitude: contrast the cost of spotting and fixing a
+            squiggly underline in a code editor vs the cost of tracking down the cause of a
+            user's bug report.
+        </p>
+
+        <p>
+            So here's an easy goal: when possible, discover problems in earlier phases
+            rather than later. For example, one way to view static typing is that it shifts
+            type problems from the execute phases to the earlier build phase; a reason
+            programmers like IDEs is that they can surface problems as you type rather than
+            needing to wait for a build first.
+        </p>
+
+        <div>
+            <h2>Invariants, and inform versus block</h2>
+        </div>
+
+        <p>
+            How we maintain invariants is more interesting. What do you do when a check
+            finds a problem? There are two basic options: either <em>inform</em> the programmer and
+            move on, or <em>block</em> forward progress.
+        </p>
+
+        <p>
+            Here's a warm up to make this more concrete. In most statically typed languages,
+            a type error stops compilation, so you could say that for a type problem the
+            compiler must <em>block</em> at build time. But even something as apparently
+            fundamental as this is not fixed! For one counterexample, TypeScript can be
+            configured to generate code regardless in the presence of type errors (which
+            <a href="">never affect runtime behavior anyway</a>).
+        </p>
+
+        <p>
+            You could imagine even a C compiler could choose "inform" on a type problem and
+            generate a runtime failure in its place, to allow you to run the resulting
+            program. (I've heard some tools in the Java ecosystem can already do this,
+            perhaps?) This behavior is plausibly useful when developing, where you want to
+            iterate on module A of a program while you ignore type problems in irrelevant
+            module B that you know you won't execute while you are working on A.
+        </p>
+
+        <p>
+            In principle then at least, for any problem you could choose between blocking
+            and informing, and informing lets the programmer choose whether to stop rather
+            than forcing it. At any given moment there are surely hundreds of different ways
+            the code could be improved, some of them not even detectable by your tools; in
+            my experience there's never a shortage of known flaws in a given codebase, and
+            the hard problem is instead how to prioritize these problems. When we block on
+            one problem what we're effectively saying is that of all the different things
+            that could be worked on, the problem you just identified is absolutely the
+            highest priority to fix, so much so that you cannot be allowed to work anything
+            else before fixing it.
+        </p>
+
+        <p>
+            So, you might ask, if we were starting over again, why would we ever choose to
+            block for any problem? It's a pretty deep question, really! In practice it comes
+            down to human nature and how we sometimes won't do work unless we're forced. For
+            example, consider warning blindness.
+        </p>
+
+        <div>
+            <h2>Warning blindness</h2>
+        </div>
+
+        <p>
+            You often find programmers recommending to configure C compilers with <code>-Werror</code>,
+            which turns all warnings (which typically "inform") into errors ("block"). But
+            at that point, why do languages even have a mechanism for warnings at all? Again
+            consider TypeScript: the problems it finds ("diagnostics", in TypeScript lingo)
+            have a severity field that is an enum that has a possible level of "warning",
+            which then is never actually used by the compiler! It ends up feeling pretty
+            circular, where warnings are never used so everything is an error, but then
+            there's also an option to not block on errors.
+        </p>
+
+        <p>
+            The underlying reason for this is that in my (and likely your!) experience,
+            informing about a problem without blocking on it at some point often leads to a
+            situation where sometimes problems are ignored. This then leads to "warning
+            blindness", which is when checks find so many problems, it gets hard to spot the
+            important checks amidst the ignored ones, which then means the checks stop
+            actually finding problems. The treat-warnings-as-errors approach fixes this
+            using the only lever we normally have available — blocking compilation — which
+            forces fixing the warnings.
+        </p>
+
+        <p>
+            Choosing to block at any phase is to enforce an invariant, e.g. "code that
+            passes this phase never contains a type error". Invariants are powerful tools
+            for reasoning because they let you relax the part of your brain that normally
+            needs to worry about an invariant. For example, imagine a system that verifies
+            (perhaps using a type system) code doesn't contain XSS or SQL injection,
+            choosing to block before deploy. Now code reviewers don't need to check for that
+            problem as closely.
+        </p>
+
+        <p>
+            But importantly, it's also useful to be able to relax an invariant. While
+            developing, you might wanna sprinkle in some printfs while debugging something
+            and you don't want to worry about appeasing the XSS checker as you do it. It's
+            valuable both to be able to sprinkle those prints (not blocking on error at the
+            run phase) while also guaranteeing that you never deploy such code (blocking at
+            the commit or deploy phase).
+        </p>
+
+        <p>
+            The pattern of informing in one phase followed by blocking in a later one is a
+            nice way to softly introduce an invariant while still giving the programmer some
+            wiggle room while developing. For example, most problems that block at a later
+            phase (such as a blocking build problem) can usefully be informed during the
+            editing phase (as a highlight in the editor) as a way of shortening the
+            development loop. Another example of this pattern in practice is in projects
+            that provide a warning-only linter during development, but then require code to
+            be lint-clean before submitting it.
+        </p>
+
+        <p>
+            The solution to warning blindness here can be generalized as this principle:
+            informing without blocking can be useful to allow rapid progress, but if any
+            phase ever decides to inform, some later phase must block on the same thing to
+            ensure the problem doesn't stick around. And that is to my mind the best
+            application of informing, as a marker for effectively time-shifting when
+            blocking happens to a later phase.
+        </p>
+
+        <div>
+            <h2>Unused import hygiene and and lint</h2>
+        </div>
+
+        <p>
+            It's time for another case study: how unused imports are handled in Go. Go
+            wanted to enforce the invariant that code never has unused imports, so the
+            compiler refuses to build code that has unused imports. This has a nice outcome
+            — you never see Go code with unused imports — but it can be frustrating to
+            work with while developing, where you might need to repeatedly add and remove a
+            temporary import like the 'log' module while debugging.
+        </p>
+
+        <p>
+            As a user of Go and as a person who prefers more checks rather than less, I
+            still think it would be better to allow building and running code with extra
+            imports. What I think we actually care about is that you don't <em>commit</em> such
+            code, which is a later phase in the development cycle. In my experience there
+            are a lot of "hygiene" like problems, such as preferred whitespacing or whether
+            imports are in the proper order, that better belong as checks during commit
+            rather than while developing. I imagine one big reason Go doesn't behave this
+            way is that they don't have the adequate hooks into the developer workflow to
+            enforce such a thing.
+        </p>
+
+        <p>
+            The lack of adequate hooks in the other direction, from the developer into the
+            toolchain, is also an explanation for the existence of "lint" tools. In my
+            experience tools named "lint" often end up being a grab-bag of "all the checks
+            we wanted but that weren't enforced by the language already", which can vary
+            from trivial guidelines all the way up to really important invariants. Switching
+            your mental framing from "which program does the check execute as part of" to
+            "which development phase does the check execute during" makes it obvious to me
+            that programming language tooling like compilers instead ought to provide hooks
+            for programmer-defined checks, such that those checks behave just like language
+            builtins.
+        </p>
+
+        <p>
+            TypeScript does something almost like this, with an option for providing
+            language service addons in the tsconfig (which can then surface problems in the
+            editor), but those addons aren't used in the compilation step itself. So in
+            TypeScript and in many other languages, introducing additional checks often
+            involves a separate build step that has to re-parse (or even
+            <a href="https://typescript-eslint.io/docs/linting/type-linting/#how-is-performance">re-type check</a>)
+            the input source. For another consequence of this layering, note that code
+            editors build compiler integrations (to show compiler checks) and then end up
+            separately building lint integrations (to show lint checks), when it'd be more
+            coherent if they only needed to integrate with one "tooling that checks for
+            problems" system.
+        </p>
+
+        <p>
+            One objection you might have at this point is something about how compilers
+            typically check "important" problems and linters check "unimportant" problems.
+            This is true to an extent but it's also often kind of a historical accident;
+            there's plenty of unimportant things a compiler can complain about, and there
+            are plenty of lint-like tools that
+            <a href="https://errorprone.info/bugpatterns">discover real problems</a>. And this also
+            explains why different compilers might treat different problems as either a
+            warning (inform) or error (block) kind of problem.
+        </p>
+
+        <div>
+            <h2>Confidence</h2>
+        </div>
+
+        <p>
+            Another axis to analyze checks along are how <em>confident</em> they are about the
+            problem. At one extreme, a compiler might say "if this code is ever executed I
+            guarantee it will explode"; at the other, a linter might say "this code pattern
+            looks kinda fishy but I'm not sure". At the low confidence end of things this
+            means that the check may misfire and complain about a problem that doesn't
+            exist.
+        </p>
+
+        <p>
+            For this reason, in the past I have believed the right approach is to just let
+            programmers ignore (bypass) low-confidence checks; for example, you could decide
+            that some lint check is purely a guess and that you should feel free to commit
+            code even when it fires. I have since come around to seeing this is a bad idea,
+            because it means that the next person who edits the code will need to reevaluate
+            the same question, and a system where you regularly need to disregard warnings
+            leads to warning blindness. (Within Google we had a system that attempts to
+            identify whether a given change actually introduced a problem, or whether it was
+            preexisting in the code, but it ends up fragile when things happen like code is
+            moved or variables get renamed.)
+        </p>
+
+        <p>
+            Instead, I think a better mechanism for responding to checks is for programmers
+            to annotate code directly. In some cases that can mean modifying the code
+            itself. A common check across languages is to say a statement like
+            <code>if (x = 3) ...</code> is suspicious because it assigns a value to <code>x</code> rather than
+            testing it, and in some languages the fix is to write it <code>if ((x = 3)) ...</code> as a
+            way of more or less saying "no I really meant that".
+        </p>
+
+        <p>
+            But in some cases, there isn't an easy syntactic modification available, in
+            which case I think an explicit acknowledgement of the check is both a great fix
+            for the check and for other programmers. For example, an explicit comment that
+            turns off the check is also exactly the right place to explain to the next
+            programmer why the code looks suspicious but is actually ok:
+        </p>
+
+        <p>
+            <code>
+                // The unsafe loader here is ok because bar() already sanitizes the input.<br>
+                // ignore:no-dangerous-api<br>
+                dangerouslyLoad(bar(input));<br>
+            </code>
+        </p>
+
+        <p>
+            (This example isn't itself great in that the above case can likely be better
+            addressed with types, but that is also another demonstration of how modifying
+            the code itself can be better than annotations.)
+        </p>
+
+        <p>
+            One tempting solution that doesn't work well is to put these annotations
+            somewhere other than the code, like in a file on the side or in a config file.
+            This doesn't work out because it results in action at a distance: if someone
+            moves the code, suddenly a check starts firing, and it's not obvious to discover
+            that it was caused by a reference to the old location of code in another file.
+            The above mechanism, with the annotation directly on the code, means that anyone
+            who touches the code (or copy-pastes it) will preserve its behavior.
+        </p>
+
+        <div>
+            <h2>Fixing</h2>
+        </div>
+
+        <p>
+            In some cases the fix for a problem can be autogenerated by tooling. For
+            example, imagine a check that enforces imports are sorted. (Enforcing this
+            invariant is often useful for reducing unmeaningful churn when imports are added
+            and removed over time, as well as making it easier for tools to automatically
+            modify imports.)
+        </p>
+
+        <p>
+            Computers are better than humans at sorting, so it would be helpful if the
+            imports-are-sorted check was accompanied by a way to automatically apply the
+            fix. Again, such fixes are usefully plumbed throughout the stack of phases: even
+            if there's a lint-like problem that is blocking at submit time, it would be
+            ideal if you could click a button in your editor to accept the suggested fix, or
+            even apply the fix automatically on save.
+        </p>
+
+        <p>
+            Frequently, the code to identify a problem is the best place to also identify
+            the fix. A tool might say "you wrote foobra right here but you probably meant
+            foobar", and when it does so it knows exactly the byte offsets of those symbols
+            that other tools would use to both display or execute the fix.
+        </p>
+
+        <p>
+            So to make this work well, what you need is a uniform serializable
+            representation of problems along with their accompanying fixes throughout the
+            cycle, which allows tools at any layer to both produce and consume these fixes.
+            (Nothing fancy, JSON is adequate.) For example, an editor consumes fixes by
+            offering the user to apply those fixes, like the light bulb in VSCode
+            (<a href="https://code.visualstudio.com/docs/editor/editingevolved#_code-action">scroll up from here to see it</a>);
+            an offline tool could consume fixes by applying them automatically to code.
+        </p>
+
+        <div>
+            <h2>Evolving checks</h2>
+        </div>
+
+        <p>
+            One reason we used tools to apply fixes offline at Google is to roll out a new
+            check. Suppose that we historically didn't sort imports but wanted to start
+            doing so. A bad approach is to just turn on the check without changing any code.
+            Doing that means the next person to build or modify an affected file suddenly is
+            interrupted with some demand unrelated to the change they were planning to make,
+            and the resulting commits mix unrelated concerns.
+        </p>
+
+        <p>
+            Much better is to programmatically execute the check and apply the fix up front,
+            as its own independent change. A common task I did over my last years at Google
+            was such a thing, deploying automated fixes like these to thousands of files.
+            Representing these "code migrations" as a problem check with an attached fix,
+            rather than a specific one-off code migration program, has the additional
+            benefit that you can use the same code to maintain the invariant going forward
+            — the code that implements the offline import sorting is the same code that
+            offers to sort your imports on new commits, sorts your imports within the
+            editor, or comments on code reviews.
+        </p>
+
+        <p>
+            In the case where a new suppressible check cannot be automatically fixed, it's
+            counterintuitively still valuable to insert a suppression comment at every
+            current instance of it in the code base as part of rolling it out, because this
+            (1) still allows the new check to fire on <em>newly</em> introduced code, and (2)
+            clearly marks all the locations that are still failing the check, making it easy
+            to grep for (how many remaining places are using APIs that we have marked as
+            dangerous? Just grep for the dangerous-api suppression) and track in a burndown
+            chart. In my experience, sending a code review that inserts a suppression is
+            often a good prompt to the reviewer to either say "this code is fine as is" and
+            accept the change, or push back with "this actually discovered a bug" and send a
+            counterproposal.
+        </p>
+
+        <p>
+            For fixes that have a high confidence, a better option than bothering humans
+            about them is to just apply them immediately. This, for example, is how
+            whitespace is handled in any humane programming language these days — it's
+            never mentioned to the programmer, and never brought up in any code review, but
+            it's just fixed as you hit save in the editor. Meanwhile, other fixes have low
+            confidence, where you definitely need a programmer involved before applying
+            them; sometimes a given problem might even have multiple plausible different
+            generated fix options. For this reason it's useful to model potential fixes as
+            an array. In VSCode, for example, it can sometimes pop up a menu to let the
+            programmer choose between the fix alternatives.
+        </p>
+
+        <div>
+            <h2>Conclusion</h2>
+        </div>
+
+        <p>
+            In this post I jumped around between how things actually work and how things
+            ought to work. It was my intent not to describe any system in particular, but
+            rather gather the patterns that I have seen work well and also suggest how
+            programming language designers can usefully think about them in the future. I
+            hope it was helpful!
+        </p>
+
+    </main>
+
+</body>
+</html>

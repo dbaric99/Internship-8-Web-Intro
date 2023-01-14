@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2>Interfaces generally belong with users</h2>
+        <span>November 23, 2019</span>
+      </div>
+
+      <p>
+        Here's an interesting pattern that comes up in Go and TypeScript, which
+        both have type systems with structurally typed interfaces. (I'll use
+        TypeScript here because its syntax will likely be more familiar to more
+        readers, but I learned it from Go, where it behaves the same.)
+      </p>
+      <p>
+        Suppose you have two modules that interact. Say there's a Profile
+        component that fetches some info from a Backend and displays it:
+      </p>
+      <pre><code>async function userProfilePage(backend: Backend, userId: string) {
+          const profile = await backend.fetchProfile(userId);
+          for (const id of profile.pictureIds) {
+            const picture = await backend.fetchPicture(id);
+            ...
+          }
+          ...
+        }
+        </code></pre>
+      <p>
+        How do you write a test for this function, given that it depends
+        directly on the backend? (One answer is to decouple the view
+        construction and rendering, but in that case just imagine any of a
+        million similar variants of this problem.) The standard testing approach
+        is to use a test double — a fake, mock, etc. — in place of the backend.
+      </p>
+      <p>
+        There are many standard frameworks such as Guice or Angular's DI system
+        that help set these up, sometimes using language magic like decorators.
+        But if you're not using a framework, the obvious thing is to do in a
+        nominally typed language like Java or C++ is the "extract interface"
+        refactoring, where you create an interface for the backend that lets
+        tests provide a fake for it:
+      </p>
+      <pre><code>interface BackendInterface {
+          fetchProfile(...);
+          fetchPicture(...);
+          otherBackendMethods(...);
+          ...
+        }
+        class Backend implements BackendInterface {
+          ... as before ...
+        }
+        
+        // and then in the client code:
+        async function userProfilePage(backend: BackendInterface, userId: string)
+        
+        // and then in the test:
+        class BackendFake implements BackendInterface {
+          ...
+        }
+        ... {
+          userProfilePage(new BackendFake(), ...);
+        }
+        </code></pre>
+      <p>
+        This approach is unsatisfying for a few reasons. One is that you must
+        create this copy of the Backend API and change every client of Backend
+        to instead accept the indirected BackendInterface, all to make the code
+        "testable". Also, as it is written here, in our test the BackendFake
+        must implement otherBackendMethods(), even though our test doesn't
+        actually interact with it.
+      </p>
+      <p>
+        There are variants on this structure are similarly unsatisfying, such as
+        making BackendInterface instead be an abstract class that has default
+        implementations of every method that throw. Or you might try making
+        subsets of Backend's interfaces for each of its different clients, but
+        that gums up its API and what if they have overlapping subsets?
+      </p>
+      <hr />
+      <p>
+        With structural interfaces like in TypeScript or Go there's a nice
+        solution for this. Instead of making any changes to Backend, to make the
+        original user profile module testable you make changes only to the code
+        you're actually testing by declaring the interface there, and make the
+        code under test accept that interface:
+      </p>
+      <pre><code>/** The backend methods needed to construct profile pages. */
+        interface ProfileBackend {
+          fetchProfile(...);
+          fetchPicture(...);
+        }
+        async function userProfilePage(backend: ProfileBackend, userId: string) {
+          ...
+        }
+        </code></pre>
+      <p>
+        This function declares exactly which methods it requires of the backend.
+        The key feature of the structural type system we're relying on here is
+        that Backend already satisfies the ProfileBackend without needing any
+        modifications, nor do you need to change any code that passes a real
+        Backend to this function.
+      </p>
+      <p>
+        But it's all still checked by the compiler: if you make changes to the
+        Backend API or if userProfilePage needs more methods, the compiler still
+        helps you find all the code that needs updates.
+      </p>
+      <p>
+        To write a test for this, the test code can provide a fake for this
+        interface which provides only exactly the functions required by this
+        method, without a useless implementation of otherBackendMethods(). This
+        component is so decoupled from Backend that it no longer even needs to
+        import Backend at all (which even for the BackendInterface variant the
+        previous code required), which may allow more parallelism in builds.
+      </p>
+      <p>This pattern is summarized in Google's Go style guide as this:</p>
+      <blockquote>
+        <p>
+          interfaces generally belong in the package that <em>uses</em> values
+          of the interface type, not the package that <em>implements</em> those
+          values.
+        </p>
+      </blockquote>
+      <p>
+        That is, an implementation like Backend should not declare any
+        interfaces. A function that wants to make use of some methods from
+        Backend should instead declare the interface it requires. Once you're
+        accustomed to the pattern you'll see that a blanket rule like this is an
+        easy heuristic way to catch all cases where the layering is wrong.
+      </p>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2>Oblique Questions</h2>
+        <span>April 13, 2020</span>
+      </div>
+
+      <p>
+        <a href="https://en.wikipedia.org/wiki/Oblique_Strategies"
+          >Oblique strategies</a
+        >
+        is a clever take on generating ideas — really, read the wikipedia
+        article. In homage to it I have been collecting my own set of "oblique
+        questions": questions that apply to engineering problems to get a
+        different perspective on them. (They are way less cool than oblique
+        strategies so please forgive me for stealing the name.)
+      </p>
+      <p>
+        The power of the questions is that they are simultaneously vague enough
+        to apply to many situations while also still prompting interesting
+        answers.
+      </p>
+      <h2>What would we do if we had 1/10th the resources?</h2>
+      <p>
+        (By 'resources' here I mean 'engineers', but it also works with
+        interpretations like RAM/CPU.)
+      </p>
+      <p>
+        For example, suppose you're building a photo hosting app, and someone
+        suggests step one is to build a new kind of database. What would we do
+        if we had 1/10th the resources? We'd take PostgreSQL off the shelf and
+        focus on the problems that our users care about.
+      </p>
+      <p>
+        For example, suppose you're building an app for platform X, the tools
+        for building apps for platform X aren't great, and someone suggests
+        building a new programming language. What would we do if we had 1/10th
+        the resources? We'd look at what other people had done to succeed on
+        that platform and use their approach instead.
+      </p>
+      <p>
+        The point here isn't to say that you should never invent a new database
+        system or programming language, but rather that by asking the question,
+        you're asking what part of the work is truly core to the problem you're
+        solving, and which parts aren't as necessary. And much in the same way
+        that scaling a system by 10x may require a new architecture, scaling a
+        system to 0.1x also lets you frame fundamental questions about your
+        architecture. Maybe realtime updates aren't worth their implementation
+        cost; maybe we don't need to make native mobile versions of an app that
+        will have at most 1000 users.
+      </p>
+      <p>
+        This question is also often prescient. Even if you have many engineers
+        around now eager to invent your new database system, how do you expect
+        to be able to continue to fund ongoing maintenance? What will you do
+        when you inevitably have 1/10th the team in the future and are tasked
+        with keeping the system alive and competitive?
+      </p>
+      <h2>
+        What would we do if we didn't have this and someone gave it to us?
+      </h2>
+      <p>
+        For example, imagine two applications A and B that are identical except
+        in one way: application A has an additional test suite that collects a
+        set of slow, flaky tests, which require painful manual updates.
+      </p>
+      <p>
+        Now suppose someone showed up to B with a patch making it like A: "Hey,
+        this patch adds a bunch of tests. Note: they take a very long time to
+        run, when they fail it doesn't necessarily mean something is wrong, and
+        when you change things in the app you will have to do a lot of tedious
+        work to update them. Oh and also, though I'm giving you the code now,
+        you're on the hook forever for keeping it going into the future." Would
+        you accept the patch? I wouldn't. And if that is so, you could
+        reasonably argue you should also just delete the tests in application A.
+      </p>
+      <p>
+        <a href="https://en.wikipedia.org/wiki/Loss_aversion">Loss aversion</a>
+        and <a href="https://en.wikipedia.org/wiki/Sunk_cost">sunk costs</a> are
+        the broader ideas here. Even though you invested a lot of resources in
+        making a bad test suite, that investment is in the past and
+        irreversible. Today, the right way to evaluate whether it's worth
+        keeping is by the framing presented by application B above.
+      </p>
+      <p>
+        Another example of where this applies is in
+        <a href="">evaluating options</a>
+        and rarely-used features. A coworker told a great story of a
+        Google-internal system that had a UI feature that was very difficult to
+        implement, requiring complex distributed systems solutions that were
+        costly in performance and cognitive overhead, and how over the years
+        they were rewarded for improving the system in various ways. Only later,
+        they realized they could have just removed the UI feature, which wasn't
+        that important in the first place.
+      </p>
+      <h2>Who if not you?</h2>
+      <p>
+        For example, suppose someone wants to deprecate API A in favor of API B.
+        But there's a lot of code lingering around that still uses API A. Often,
+        the author of A will try something like: "I cannot possibly fix all the
+        code that uses API A. We can just mark it deprecated and then people can
+        migrate on their own later".
+      </p>
+      <p>
+        To that I ask: Who if not you? If you don't have time to do this
+        migration now — if it's not so important that you would prioritize doing
+        it — why would you expect someone else would have this time later?
+        Because usually the result of an incomplete migration is just that you
+        end up supporting both API A and B forever.
+      </p>
+      <p>
+        Another place I often ask this is when I find someone junior complaining
+        about some broken system: Who will fix it if you don't? This question is
+        about trying to help people take ownership, and to realize that they are
+        participants, not just consumers. Oftentimes "fixing" a problem might
+        just be taking the effort to surface the issue in the right forum — for
+        example, perhaps the team behind the system isn't even aware of the
+        problem.
+      </p>
+      <p>
+        The most important person question to ask this question of is yourself.
+        If you notice something wrong, who will fix it if not you? Usually the
+        answer is "nobody" unless you take action.
+      </p>
+      <h2>What are we trading off?</h2>
+      <p>
+        Engineering is fundamentally about making smart tradeoffs. At the small
+        scale we talk about trading off RAM for CPU, but at the larger scale we
+        also trade off correctness for speed, or time to ship vs technical debt.
+        If someone presents something with the claim that it's all benefits and
+        no costs — or the reverse — what that really means is that they don't
+        fully understand the problem space.
+      </p>
+      <p>
+        Often that misunderstanding is due to not appreciating the total
+        <em>scope</em> of problem space, which encompasses not only specific
+        technology choices but also time factors (how will this solution work
+        over five years? will maintenance be a problem? will a piece we rely
+        upon be abandoned?) and human factors (again: what will happen when we
+        have 1/10th the resources?).
+      </p>
+      <p>
+        Exercise: imagine the technology you like the least (Go? PHP? Electron?)
+        and try to make a genuine argument for why someone might use it and be
+        right.
+      </p>
+    </main>
+  </body>
+</html>
