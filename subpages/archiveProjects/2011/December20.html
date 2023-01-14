@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">Nonblocking disk IO</a></h2>
+        <div>December 20, 2011</div>
+      </div>
+
+      <p>
+        It's natural, when writing an event-driven application, to want to
+        perform disk operations like file reads and writes in the same
+        non-blocking manner you use for sockets.
+      </p>
+      <p>
+        This turns out to be hard. In theory there's POSIX AIO, but it's
+        reported to not really work on Linux (my info might be out of date).
+        Async libraries like node.js use an internal thread pool to simulate its
+        desired event-behavior for files.
+      </p>
+      <p>
+        Sometimes in discussions about this people point longingly at Windows,
+        which does have an API for performing overlapped disk operations. See
+        <a href="http://tinyclouds.org/iocp-links.html"
+          >Ryan Dahl's nice overview</a
+        >
+        for a ton of links. In fancy apps like Chrome, subsystems like the disk
+        cache use overlapped IO on Windows and threads on non-Windows, with the
+        hope that Windows async IO involves less overhead (less bookkeeping,
+        fewer copies, etc.).
+      </p>
+      <p>
+        But it turns out that Windows async IO is just broken. In any of a
+        number of situations, including if your disk is encrypted, Windows will
+        silently make your async file operations synchronous. See
+        <a href="http://support.microsoft.com/kb/156932">this MSDN doc</a> for a
+        list of other potential reasons. Special highlights include how
+        extending a file's length is synchronous unless you use a special API,
+        while that API on NTFS file systems requires a special privilege that is
+        only available to administrators by default.
+      </p>
+      <p>
+        I don't write this to just say "man, Windows sure sucks" — the Linux
+        situation is worse, and this may well all have been fixed in Windows 7.
+        But rather I observe that there is just a ton of API surface in an
+        operating system, and any of it may block (see e.g.
+        <a href="http://brad.livejournal.com/2228488.html"
+          >Brad discussing sendfile</a
+        >). (In Chrome's case, we found via instrumentation that real users were
+        encountering browser hangs because its supposedly async disk interface
+        wasn't async for seeking within a file.) In practice for anything you
+        want to be truly asynchronous you probably need to use a thread. You can
+        still use the AIO APIs, if you have some that work, from that thread.
+      </p>
+      <p>
+        There are two ways to interpret that conclusion. One is that trying to
+        make a synchronous world async in a piecemeal fashion doesn't work, and
+        instead it's better to make it easy to coordinate synchronous tasks —
+        the Go model (see
+        <a href="http://swtch.com/~rsc/talks/threads07/"
+          >rsc's convincing slides</a
+        >). The other view is that the problem is the synchronous system, and
+        any work we can do to move away from that the better — the node model,
+        where you replace the world.
+      </p>
+    </main>
+  </body>
+</html>

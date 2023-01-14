@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">Random software: gocairo</a></h2>
+        <div>September 16, 2015</div>
+      </div>
+
+      <p>
+        For another random project I needed bindings to
+        <a href="http://cairographics.org/">the Cairo graphics library</a> from
+        Go. Looking online found a few incomplete attempts — including,
+        embarrassingly, one that I myself had made one years ago that I had
+        entirely forgotten about!
+      </p>
+      <p>
+        I decided to fix this, and published
+        <a href="https://github.com/martine/gocairo">gocairo</a> — the
+        definitive Cairo golang bindings. (When I published this I also
+        eliminated the incomplete prior implementation I had published, so I
+        feel I am not contributing to a
+        <a href="https://xkcd.com/927/"
+          >proliferation of incompatible implementations</a
+        >.)
+      </p>
+      <p>
+        This wrapper is perhaps interesting in its approach. Rather than write
+        out a function-by-function wrapper, I instead used a
+        <a href="https://godoc.org/rsc.io/c2go/cc">C parser</a> to parse the
+        existing C header and then generate the wrapper from that header in
+        code. This is similar to the SWIG approach; but because this code is a
+        one-off program specifically for this one translation task, I can
+        special-case as much as necessary to make the resulting API pleasant and
+        idiomatic.
+      </p>
+      <p>
+        <a href="http://godoc.org/github.com/martine/gocairo/cairo"
+          >The resulting API</a
+        >
+        has nearly perfect coverage of the C API, and the few remaining missing
+        pieces are printed out as warnings during the build process.
+      </p>
+      <p>
+        (This project was part of a yak shave for another project that hopefully
+        will be more interesting and worth posting about soon!)
+      </p>
+    </main>
+  </body>
+</html>

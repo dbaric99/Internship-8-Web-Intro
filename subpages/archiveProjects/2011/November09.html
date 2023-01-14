@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">Graphics stack</a></h2>
+        <div>November 09, 2011</div>
+      </div>
+
+      <p>
+        The graphics world is a soup of terms and libraries, reminiscent of the
+        <a
+          href="http://blogs.adobe.com/penguinswf/2007/05/welcome_to_the_jungle.html"
+          >audio API jungle</a
+        >. Here's my attempt at a glossary. As with many of my posts, I'm not
+        confident in a lot of what I've discovered, so corrections are welcomed.
+      </p>
+      <p>
+        <strong>OpenGL itself.</strong> OpenGL frequently refers to suite of
+        related pieces, but specifically it is the API used by applications to
+        produce graphics: "load these pixels as a texture", "draw a triangle".
+        The API has been around a while, with multiple revisions, and is pretty
+        enormous and confusing — which API is available and whether a given call
+        works is hardware-dependent.
+      </p>
+      <p>
+        OpenGL has a system of extensions that are functions that can be queried
+        for and called at runtime. On Linux you also must contend with the fact
+        that the X server might support different extensions than the client
+        library you were linked against; see <code>glxinfo</code> for gory
+        details.
+      </p>
+      <p>
+        OpenGL has had a variety of minor version increments as extensions are
+        promoted to core functions, as well as some major version changes. Many
+        tutorials you see only describe v1, which is the majority of the API,
+        but the v1 to v2 change was large: OpenGL 2 introduced API to compile
+        and upload code to the graphics card, which generalizes concepts like
+        texture mapping. Despite there existing OpenGL 3 and 4, Mesa (see below)
+        targets OpenGL 2.1, so that's the version of interest. (The OS X docs
+        recommend targeting OpenGL 3.2.)
+      </p>
+      <p>
+        OpenGL ES (Embedded Systems(?)) is a subset of the OpenGL API to a
+        smaller core set of functions. (It comes in versions 1 and 2 to parallel
+        the OpenGL version divide.) A device like a phone can promise support
+        for "OpenGL ES" and then software authors can target it. These days it
+        seems like increasingly all software targets GLES; though I would
+        imagine demanding users like games use every function they can find,
+        consoles and WebGL are both based on GLES.
+      </p>
+      <p>This API is small:</p>
+      <pre><code>$ egrep -v '^$|^#' /usr/include/GLES2/gl2.h  | wc -l
+        246
+        </code></pre>
+      <p>
+        <strong>Associated libraries.</strong> Mesa is an (the) open source
+        OpenGL implementation. Because there are so many layers to OpenGL, Mesa
+        is the implementation of many of the below components, from user-level
+        APIs through drivers, and various components have migrated into and out
+        from the Mesa repository over time.
+      </p>
+      <p>
+        libGLU, GL Utilities, provides functions like "map an error code to a
+        string describing the error". libGLEW, GL Extension Wranger, provides a
+        nicer API for probing and using GL extensions.
+      </p>
+      <p>
+        <strong>Platform bindings.</strong> OpenGL provides calls like "bind a
+        texture" or "draw a quad", but you need to somehow hook the current
+        OpenGL context to the screen. Historically this was done with
+        platform-specific libraries: <code>WGL</code> for Windows,
+        <code>CGL</code> on Apple, and <code>GLX</code> on X11. For example,
+        <code>glx.h</code> has functions that take an Xlib
+        <code>Display*</code> or a <code>Window</code> and let you hook up GL
+        context to it.
+      </p>
+      <p>
+        There are simplification libraries that abstract over these
+        system-specific APIs, while typically also abstracting mouse/keyboard
+        input.
+        <a href="http://www.opengl.org/resources/libraries/glut/">GLUT</a> is
+        the standard one, but I've seen recommendations for the third-party
+        <a href="http://www.glfw.org/">GLFW</a> and even SDL (common for games)
+      </p>
+      <p>
+        The newer EGL ("E" parallels GLES) subsumes the platform-specific APIs:
+        it has functions that work with an
+        <code>EGLNativeDisplayType</code> which is typedef'd the appropriate
+        things on various platforms. With EGL you can create a "window surface"
+        and make GL calls on it. This includes support for platforms like
+        phones; Mesa's EGL implementation has
+        <a
+          href="http://cgit.freedesktop.org/mesa/mesa/tree/src/egl/drivers/dri2/platform_android.c"
+          >Android source checked in</a
+        >, and
+        <a
+          href="http://www.developer.nokia.com/Community/Wiki/Introduction_to_OpenGL_ES_1.0"
+          >Nokia provides a nice tutorial on using the API</a
+        >. Because the free software world loves implementing APIs in terms of
+        one another, Mesa's EGL implementation has pluggable drivers to layer it
+        atop GLX or (see below) DRI or Gallium3D.
+      </p>
+      <p>
+        <strong>Kernel interface.</strong> The above describes the
+        application-facing API. Diving deeper, DRI (Direct Rendering
+        Infrastructure) is the umbrella project for hardware-assisted rendering
+        on Linux. DRM is the kernel portion, managing access to the graphics
+        hardware: it shows up in <code>/dev</code> and <code>/proc</code>.
+        According to strace, a program that uses libGL and libGLX sends messages
+        to the X server mentioning DRI as well as opening
+        <code>/dev/dri/card0</code>.
+      </p>
+      <p>
+        <strong>Drivers.</strong> It appears that historically it was up to the
+        graphics card vendor to support OpenGL, providing almost the whole
+        stack.
+      </p>
+      <p>
+        <a href="http://en.wikipedia.org/wiki/Gallium3D">Gallium3D</a> is a
+        recent effort to share more code between drivers: drivers implement the
+        Gallium API and then Mesa's OpenGL implementation can target Gallium.
+      </p>
+      <p>
+        Nvidia provides a high-quality closed-source OpenGL driver for Linux,
+        which provides its own libGLX all the way through to its own kernel
+        module. (This makes the drivers tied not only to X but even specifically
+        to Xlib;
+        <a href="http://xcb.freedesktop.org/opengl/"
+          >see this discussion of GLX+XCB</a
+        >)
+      </p>
+      <p>
+        <a href="http://nouveau.freedesktop.org/wiki/">Nouveau</a> is a free
+        software Nvidia driver with more bugs but more support for the new shiny
+        (such as Gallium and EGL).
+      </p>
+      <p>
+        I haven't read as much about Intel or ATI. It appears Intel mostly works
+        in-kernel but has worse hardware, while ATI has a similar
+        proprietary/free-software-rewrite driver split (but perhaps their
+        proprietary driver
+        <a
+          href="http://mailman.archlinux.org/pipermail/arch-dev-public/2009-February/010394.html"
+          >isn't as good as Nvidia's?</a
+        >).
+      </p>
+      <p>
+        <strong>Memory management.</strong> GL code sometimes wants to pass
+        rendered buffers around between processes: consider an application that
+        makes GL calls to draw its contents, and then wants to pass that
+        rendered data to a compositing manager which itself makes GL calls to
+        merge the application's output with other applications.
+      </p>
+      <p>
+        Historically the Linux kernel developers have avoided graphics APIs, but
+        Intel's attempt,
+        <a href="http://en.wikipedia.org/wiki/Graphics_Execution_Manager">GEM</a
+        >, made it into the kernel in 2008, only to not be adopted by others.
+        (Here's
+        <a href="http://lwn.net/Articles/283798/">a technical overview of GEM</a
+        >.) There's a competing system called
+        <a href="http://wiki.x.org/wiki/ttm">TTM</a>, which again in the API
+        layering stew apparently can be used to implement the GEM API. It's
+        unclear which of these systems is succeeding; some sources claim GEM is
+        be Intel-specific while others say TTM is obsolete. (Nvidia's
+        proprietary driver of course uses its own system.)
+      </p>
+      <p>A bonus aside: found this hilarous comment on a GEM article.</p>
+      <blockquote>
+        <p>"GEM will be a waste of time, despite Intel's fame.</p>
+        <p>PCI/ISA bus are hopeless, with USB 3.0 coming.</p>
+        <p>
+          Linux operating system maybe replaced with 8 bit ascii ocde table as
+          function keys in cisc cpu with asic funstions, running 8 bit
+          multicored cpus? The old cpu instructions can be replaced with Posix
+          packets runing cloud computing servers. Data transfer is now planned
+          to be Mpeg4/AVC."
+        </p>
+      </blockquote>
+      <p>
+        I believe that passing GL surfaces between processes is a relatively
+        modern concept: I vaguely recall it only was exposed to userland in OS X
+        in the last few releases, where it was used as SPI in Safari's out of
+        process plugin wrapper to composite the rendered plugin contents into
+        the browser window (warning: read with suspicion, I can't find a
+        reference for this online). However, OS X itself is clearly composited,
+        so it must have had some system for doing this already. (I'd love to
+        fill in this paragraph with info from someone more knowledgable.)
+      </p>
+      <p>
+        Chrome has multiple processes rendering in parallel, but due to the
+        sandbox the GL calls themselves are proxied across process boundaries,
+        not the resulting rendered buffers.
+        <a
+          href="http://www.chromium.org/developers/design-documents/gpu-accelerated-compositing-in-chrome"
+          >See the design doc</a
+        >. This is less terrible than it may sound, as OpenGL is designed as an
+        async client/server API already: your commands must be relayed to the
+        GPU anyway. For example, creating a texture gives you an integer ID for
+        it and future calls use that ID, and there are lots of APIs around
+        uploading collections of data (like vertex coordinates) to the GPU that
+        you intend to use repeatedly.
+      </p>
+      <p>
+        <strong>Wayland and X11</strong>. X is the oldest piece and the center
+        of the Linux graphics stack. It has its tentacles in everything: it has
+        graphics drivers of its own, it touches DRI/DRM, GLX targets it.
+      </p>
+      <p>
+        Wayland was born when its author noticed that modern software doesn't
+        really use X anymore. The core of Wayland is a protocol to let multiple
+        clients communicate when they've updated buffers they've rendered, and
+        then Wayland's compositor (a separate program that speaks the Wayland
+        protocol) puts those buffers on screen using DRI directly. Toolkits like
+        GTK which mostly sidestep X anyway can (and already have) been
+        retargeted to use Wayland directly; code to speak the X protocol and
+        render into a Wayland buffer would allow existing X apps to work. It
+        makes sense to me.
+      </p>
+      <p>
+        Hopefully with all of the above terms fresh in your memory the
+        <a href="http://wayland.freedesktop.org/faq.html">FAQ</a> will make a
+        lot more sense to you; I know it did for me. (For example, Wayland
+        relies on EGL because it's the only GL platform interface on Linux that
+        doesn't itself rely on Xlib; because Nvidia's driver targets GLX, it
+        won't work with Wayland.)
+      </p>
+    </main>
+  </body>
+</html>

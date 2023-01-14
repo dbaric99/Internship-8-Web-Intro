@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">Pocket mini</a></h2>
+        <div>August 09, 2014</div>
+      </div>
+
+      <p>
+        Lately I've been using <a href="https://getpocket.com">Pocket</a> as a
+        way to gather things to read on my phone on my commute. (Sometimes I use
+        it even to read an article directly, since their layout is more
+        pleasant.) Their website and Android app are quite nice, and they even
+        have a Chrome extension to make it easy to add things to your queue.
+      </p>
+      <p>
+        However, the extension requires the dreaded "Access your data on all
+        websites" permission, and I found it even modifies some pages to add
+        on-page "Add to pocket" links. This latter behavior is controllable via
+        the preferences, but as a learning exercise I tried making my own
+        extension that is as simple as a single button.
+      </p>
+      <p>
+        I called extension "Save to Pocket (mini)", and you can get it from
+        <a
+          href="https://chrome.google.com/webstore/detail/save-to-pocket-mini/calnfcidhlhdmmmnicdpddbmmjmfohem"
+          >the Chrome extension store</a
+        >
+        or from <a href="https://github.com/martine/pocket-mini">GitHub</a>.
+        Here are some implementation notes on developing such an extension.
+      </p>
+      <p>
+        First, the mechanism to add pages to Pocket is implemented in
+        JavaScript, which means you need to run some JavaScript when you click
+        the extension's button. In Chrome extensions you can do this by making a
+        "background page", which is effectively an isolated web page for your
+        script, but this background page can run continuously and waste system
+        resources. (There's some support for non-persistent background pages in
+        Chrome but it's not clear to me when exactly they run.) Instead, by
+        making the button display a popup I can run the script in the popup's
+        page and be sure it doesn't live longer than that.
+      </p>
+      <p>
+        The Chrome docs on how to get the URL of the current page without
+        requiring the "all tabs" permission aren't very clear. It comes down to
+        requiring the <code>activeTab</code> permission (which I believe is
+        implicitly granted by the user when they click your button) and then
+        (and here is the leap that isn't very clear in the docs) using a call
+        like
+      </p>
+      <pre><code>chrome.tabs.query({currentWindow:true, active:true}, function(tabs) {
+        </code></pre>
+      <p>
+        which normally would provide an array of all tabs, but in the special
+        case of the <code>activeTab</code> permission returns only the current
+        tab.
+      </p>
+      <p>
+        The other interesting piece to adding to Pocket is getting authorization
+        to work. The Pocket API uses an OAuth-like flow that took me a bit of
+        poking at to get right. The way these flows work involve a series of
+        steps:
+      </p>
+      <ol>
+        <li>Your app fetches a token from the pocket site.</li>
+        <li>
+          Your app points the browser to a URL on the pocket site and includes
+          the token and a target URL.
+        </li>
+        <li>
+          The user clicks "OK" on the pocket site, authorizing your app access
+          to their data, and redirecting their browser to the URL.
+        </li>
+        <li>
+          Your app makes another API call with the token, receiving a permanent
+          access token in the response.
+        </li>
+      </ol>
+      <p>
+        Implement this is a simple sequence of XHRs except for step three —
+        where do you tell Pocket to redirect the user to to complete the
+        authorization? The answer is to use the
+        <code>web_accessible_resources</code> stanza in your extension manifest
+        to expose an HTML page within your extension, and then use
+        <code>chrome.extension.getURL()</code> to grab a URL pointing to that
+        page and use it in the above flow.
+      </p>
+      <p>
+        All this page needs to do is resume the work of step 4. But that page is
+        separate from the page that started the flow, so the token fetched in
+        step 1 can't be carried in a temporary variable; instead, I stashed it
+        in localStorage temporarily since the extension popup and the extension
+        authorization page share an origin and consequently the storage.
+      </p>
+      <p>
+        In all, this was pretty fiddly and not that satisfying to get working,
+        and now that it is complete I find myself wondering whether there was a
+        simpler approach. Had I poked around on the Pocket site some more I'd
+        have found their page where they document the less-preferred API, which
+        just involves
+        <a
+          href="http://getpocket.com/blog/2009/08/add-read-it-later-to-google-readers-send-to-dropdown/"
+          >loading a URL with some specific parameters</a
+        >. But the extension seems to work, so feel free to use it or at least
+        refer to its code.
+      </p>
+    </main>
+  </body>
+</html>

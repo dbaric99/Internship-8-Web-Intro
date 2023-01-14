@@ -1,121 +1,125 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tech Notes: Two surprises in browser crashes</title>
-</head>
-<body>
-    
+  </head>
+  <body>
     <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
         <div>
-            <h1>
-                <a href="./subpages/neugierig.html">neugierig.org: </a>
-                <a href="">Tech Notes</a>
-            </h1>
-            <div>
-                <span>
-                    You're reading a single entry. Go <a href="../blog.html">back to the front page</a> for more.
-                </span>
-            </div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
         </div>
+      </div>
     </header>
 
     <main>
-        <div>
-            <h2>Blog software</h2>
-            <span>October 05, 2022</span>
-        </div>
+      <div>
+        <h2><a href="">Blog software</a></h2>
+        <span>October 05, 2022</span>
+      </div>
 
-        <p>
-            People occasionally contact me to ask what software I use to run this site.
-            There are a lot of complex dynamic options (like Wordpress) and a lot of complex
-            static options (like Jekyll), but my needs — and likely yours! — are pretty
-            simple. This site relies on
-            <a href="https://boringtechnology.club/">aggressively boring technology</a>: it was a small
-            Python script for many years, and when the Python 2 to the 3 upgrade screwed me
-            over I rewrote it in Go in an evening.
-        </p>        
+      <p>
+        People occasionally contact me to ask what software I use to run this
+        site. There are a lot of complex dynamic options (like Wordpress) and a
+        lot of complex static options (like Jekyll), but my needs — and likely
+        yours! — are pretty simple. This site relies on
+        <a href="https://boringtechnology.club/"
+          >aggressively boring technology</a
+        >: it was a small Python script for many years, and when the Python 2 to
+        the 3 upgrade screwed me over I rewrote it in Go in an evening.
+      </p>
 
+      <p>
+        <strong>The code.</strong>
+        <a href="https://github.com/evmar/cms">The code is on GitHub</a> but
+        it's not interesting, which is the whole point. The input is a few
+        <a href="https://pkg.go.dev/html/template">Go templates</a> — I used
+        jinja2 when it was Python — and a tree of markdown files. The output is
+        HTML files (one to one with the markdown) and <a href="">a feed</a>.
+      </p>
 
-        <p>
-            <strong>The code.</strong> <a href="https://github.com/evmar/cms">The code is on GitHub</a> but it's not
-            interesting, which is the whole point. The input is a few
-            <a href="https://pkg.go.dev/html/template">Go templates</a> — I used jinja2 when it was
-            Python — and a tree of markdown files. The output is HTML files (one to one
-            with the markdown) and <a href="">a feed</a>.
-        </p>
+      <p>
+        <strong>Static serving.</strong> I see a lot of people who make websites
+        worry about serving performance. In practice, serving static files will
+        scale plenty for anything you'll ever publish. I host this site on
+        <a href="https://www.nearlyfreespeech.net/">NearlyFreeSpeech</a>, which
+        I have no affiliation with but I am happy with. It appears to be run by
+        a grumpy Unix sysadmin which is just my vibe; I publish using rsync. You
+        pay by usage (storage and bandwidth), and for my usage the site costs
+        about 50 cents a month. This is actually overpaying because I am too
+        lazy to delete the decade-old access logs. (Now that I'm looking, I
+        notice on months where I had a popular post I was charged ~$1.50.)
+      </p>
 
-        <p>
-            <strong>Static serving.</strong> I see a lot of people who make websites worry about serving
-            performance. In practice, serving static files will scale plenty for anything
-            you'll ever publish. I host this site on
-            <a href="https://www.nearlyfreespeech.net/">NearlyFreeSpeech</a>, which I have no
-            affiliation with but I am happy with. It appears to be run by a grumpy Unix
-            sysadmin which is just my vibe; I publish using rsync. You pay by usage (storage
-            and bandwidth), and for my usage the site costs about 50 cents a month. This is
-            actually overpaying because I am too lazy to delete the decade-old access logs.
-            (Now that I'm looking, I notice on months where I had a popular post I was
-            charged ~$1.50.)
-        </p>
+      <p>
+        <strong>Static generation.</strong> I also see people complain about the
+        performance of static site generation software, but in my experience
+        generating static files is also trivial and fast. The above program does
+        the obvious thing of walking the input path to gather all the markdown
+        files to regenerate all the output files every time it's run, and for
+        this blog it does so in like 40ms. Perhaps if I had more posts it would
+        be slower? But even if I had 25x the posts it's still only a second.
+      </p>
 
-        <p>
-            <strong>Static generation.</strong> I also see people complain about the performance of
-            static site generation software, but in my experience generating static files is
-            also trivial and fast. The above program does the obvious thing of walking the
-            input path to gather all the markdown files to regenerate all the output files
-            every time it's run, and for this blog it does so in like 40ms. Perhaps if I had
-            more posts it would be slower? But even if I had 25x the posts it's still only a
-            second.
-        </p>
+      <p>
+        <strong>Generating a blog.</strong> The blog-specific part of the
+        generator software is maybe half the code weight, because for the blog
+        there is some custom logic to generate a few different views like the
+        post archive. This works by loading up all the blog posts then
+        generating all the views from those posts. Each blog post input file
+        starts with some metadata including a date stamp, which affects the
+        output path. I feel like even this description is more words than
+        necessary; the total logic is 200 lines of Go, which itself is not even
+        an especially terse language.
+      </p>
 
-        <p>
-            <strong>Generating a blog.</strong> The blog-specific part of the generator software is maybe
-            half the code weight, because for the blog there is some custom logic to
-            generate a few different views like the post archive. This works by loading up
-            all the blog posts then generating all the views from those posts. Each blog
-            post input file starts with some metadata including a date stamp, which affects
-            the output path. I feel like even this description is more words than necessary;
-            the total logic is 200 lines of Go, which itself is not even an especially terse
-            language.
-        </p>
+      <p>
+        (By the way, blog software traditionally dumps a collection of recent
+        posts in one single page.
+        <a href="">See my old post on why this idea is obsolete</a>.)
+      </p>
 
-        <p>
-            (By the way, blog software traditionally dumps a collection of recent posts in
-            one single page.
-            <a href="">See my old post on why this idea is obsolete</a>.)
-        </p>
+      <p>
+        <strong>Editing tools.</strong> I used to draft the posts in a local
+        text editor, but more recently I have moved to drafting in Google Docs.
+        This lets me occasionally ask friends to review a post. I don't often do
+        this, but in particular sometimes I try to paraphrase what someone else
+        said and I worry about misquoting them. Once I'm done I copy it into
+        VSCode, which has a builtin Markdown preview.
+        <code>prettier -w --prose-wrap always</code> is a Markdown
+        autoformatter, useful if you're compulsive about autoformatting like me.
+      </p>
 
-        <p>
-            <strong>Editing tools.</strong> I used to draft the posts in a local text editor, but more
-            recently I have moved to drafting in Google Docs. This lets me occasionally ask
-            friends to review a post. I don't often do this, but in particular sometimes I
-            try to paraphrase what someone else said and I worry about misquoting them. Once
-            I'm done I copy it into VSCode, which has a builtin Markdown preview.
-            <code>prettier -w --prose-wrap always</code> is a Markdown autoformatter, useful if you're
-            compulsive about autoformatting like me.
-        </p>
+      <p>
+        <strong>Low maintenance.</strong> The Python2 version of the code worked
+        mostly unmodified for over 10 years; I expect the Go version,
+        <a href="https://go.dev/doc/go1compat"
+          >with Go's emphasis on stability</a
+        >, to also last a long time. The biggest risk is probably the single
+        external dependency, on a Markdown parser. The biggest downside of my
+        approach is that it's not especially convenient to publish a new post
+        relative how it might hypothetically work with a webapp, but even that
+        hurdle is only as complicated as creating a text file and running a
+        script when I want to publish it. In contrast, the upside of zero
+        maintenance (Wordpress has already had 5 more CVEs this year) is pretty
+        huge.
+      </p>
 
-        <p>
-            <strong>Low maintenance.</strong> The Python2 version of the code worked mostly unmodified
-            for over 10 years; I expect the Go version,
-            <a href="https://go.dev/doc/go1compat">with Go's emphasis on stability</a>, to also last a
-            long time. The biggest risk is probably the single external dependency, on a
-            Markdown parser. The biggest downside of my approach is that it's not especially
-            convenient to publish a new post relative how it might hypothetically work with
-            a webapp, but even that hurdle is only as complicated as creating a text file
-            and running a script when I want to publish it. In contrast, the upside of zero
-            maintenance (Wordpress has already had 5 more CVEs this year) is pretty huge.
-        </p>
-
-        <p>
-            <strong>It's easy.</strong> In all, this stack is fast, does exactly what I want, and is low
-            risk in terms of my time. I wanted to publish the above to encourage you to try
-            it too.
-        </p>
-
+      <p>
+        <strong>It's easy.</strong> In all, this stack is fast, does exactly
+        what I want, and is low risk in terms of my time. I wanted to publish
+        the above to encourage you to try it too.
+      </p>
     </main>
-
-</body>
+  </body>
 </html>

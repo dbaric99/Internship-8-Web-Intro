@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">Adventures in heap profiling</a></h2>
+        <div>March 06, 2012</div>
+      </div>
+
+      <p>
+        There's an obvious metaphor for heap profiling that I've yet to find a
+        good opportunity to use, so here goes. Imagine you're investigating a
+        company that is spending too much money. You have all of the credit card
+        bills, but they only implicate the person who signed for a given
+        purchase. Ideally you'd track down who authorized too many purchases.
+        But then if you trace the management hierarchy all the way to its root,
+        the CEO is ultimately responsible for all spending, and that's not a
+        useful fact either.
+      </p>
+      <p>
+        In code, your credit card bills are the calls to
+        <code>malloc()</code> and your CEO is the <code>main()</code> function
+        that invokes all the calls. Heap profiling, then, can be broken into two
+        pieces: one, collecting the chains of authority, and second, analyzing
+        those chains to allocate (pun intended!) blame.
+      </p>
+      <p>
+        Let's start with the first one. Collecting a heap profile is as simple
+        as recording the call stack at each memory allocation point, which is to
+        say it's not exactly simple.
+      </p>
+      <p>
+        First you must hook allocation.
+        <a
+          href="http://www.gnu.org/software/libc/manual/html_node/Hooks-for-Malloc.html"
+          >Glibc provides hooks for <code>malloc</code></a
+        >, and if you're using a custom memory allocator like tcmalloc you're
+        already doing this as well, but there's also various pieces of your
+        program like C++ or glib which may use its own allocation pools (for
+        glib, for example,
+        <a href="http://developer.gnome.org/glib/2.30/glib-running.html"
+          >you can adjust <code>G_SLICE</code></a
+        >
+        to aid debugging).
+      </p>
+      <p>
+        Once your code is getting called at the right places, you must find a
+        way to get a stack trace at runtime. One approach is to look at the
+        stack for return addresses. It appears gcc for x86-64 Linux provides API
+        for such at thing, but check out
+        <a
+          href="http://code.google.com/p/google-glog/source/browse/trunk/src/stacktrace_x86-inl.h"
+          >the gnarly code Google uses for x86</a
+        >; <a href="http://www.nongnu.org/libunwind/">libunwind</a> is a more
+        recent implementation that likely works better. Another approach is to
+        record extra information while the code is running; tcmalloc can use
+        gcc's <code>-finstrument-functions</code> flag to hook
+        <em>every</em> function call with a bit of code that simply maintains
+        the call stack as an array on the side (a "shadow stack").
+      </p>
+      <p>
+        Now you've collected a bunch of allocation stack traces, and it's time
+        to shuffle them together. Typically this information is presented as a
+        "top N" list or a tree widget, but tcmalloc provides a cool tool called
+        <code>pprof</code> that generates those as well as input to
+        <code>graphviz</code> to generate pictorial graphs. You can see a
+        snippet of such a graph for GFS, the Google File System, on
+        <a href="http://goog-perftools.sourceforge.net/doc/heap_profiler.html"
+          >on the tcmalloc heap profiler page</a
+        >.
+      </p>
+      <p>
+        However, to map the addresses seen in the recorded call stacks into
+        human-readable function names, <code>pprof</code> relies upon helper
+        tools from GNU binutils such as <code>addr2line</code>, which turns out
+        to be agonizingly slow — for Chrome I clocked it as taking over 4.5
+        minutes to load a profile! For fun I recently dug into how this all
+        works, and so I have written two programs to share with you.
+      </p>
+      <p>
+        The first I wrote is
+        <a href="https://github.com/martine/maddr">maddr</a>, a halfway
+        reimplementation of <code>addr2line</code>. To map an address to a line
+        number in code you rely on debug information, which is in an awkward
+        format described in the DWARF spec. The line number info is a bytecode
+        format that generates a large table mapping every offset within the
+        binary to a source file and line number; <code>maddr</code> decodes that
+        table into memory and does binary searches over it to quickly answer
+        queries. In principle this could be extended slightly to support the
+        same formats <code>addr2line</code> uses, and then plugged directly into
+        <code>pprof</code>.
+      </p>
+      <p>
+        But I was curious about how the other pieces of all of this work, like
+        how <code>pprof</code> shuffles the stacks together, and so my second
+        program is the boringly-named
+        <a href="https://github.com/martine/hp">hp</a>, which loads the heap
+        profiling output as emitted by tcmalloc and generates graphs.
+        <code>hp</code> is written in Go which makes concurrency so easy that it
+        trivially uses multiple threads to load a heap profile and the symbols
+        from a binary in parallel. It then has a "server" mode which brings up a
+        web server, letting you adjust parameters (well, one parameter, but you
+        get the idea) dynamically by clicking around.
+      </p>
+      <p>
+        You can play with
+        <a href="http://martine.github.com/hp/demo.html"
+          >a demo of hp's output</a
+        >
+        online. (Caveats: it's a static snapshot so "rerender" doesn't work in
+        the demo; it uses WebKit flexbox so it only works in WebKit. Use the
+        middle mouse button to pan.) You could easily extend this so that you
+        could click on the graph nodes to focus in on a single call stack, but I
+        think I've exhausted my curiosity at this point (and I
+        <a href="">no longer work on Chrome</a>) so that's all you get!
+      </p>
+    </main>
+  </body>
+</html>

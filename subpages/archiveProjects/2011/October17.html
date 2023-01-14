@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">Why not Haskell?</a></h2>
+        <div>October 17, 2011</div>
+      </div>
+
+      <p>
+        At one point, I think I qualified as a Haskell ninja — I understood and
+        used monad transformers, I had a bunch of modules
+        <a
+          href="http://www.google.com/search?hl=en&amp;as_sitesearch=hackage.haskell.org%2Fpackage&amp;as_q=evan+martin"
+          >up on the module sharing system</a
+        >
+        including C bindings, I was even credited for providing feedback on a
+        Haskell paper.
+      </p>
+      <p>
+        But I haven't done any of that in months, maybe a year. And much like my
+        post-mortem about
+        <a href="http://evan-tech.livejournal.com/136436.html"
+          >why I stopped looking at O'Caml in 2005</a
+        >
+        (which I think in part is what drove me to Haskell), I figure Haskell
+        deserves one too.
+      </p>
+      <p>
+        First, the good: Haskell is truly beautiful. I cannot think of another
+        thing I've played with that has been so mentally rewarding over such an
+        extended period of time. It's permanently changed the way I think about
+        programming, from computation all the way through aesthetics.
+      </p>
+      <p>
+        That sort of statement may also be true about e.g. Lisp but I found that
+        there wasn't a whole lot to get about Lisp (that's kind of the point of
+        Lisp, after all), whereas each extra month with Haskell gave me an extra
+        month of new perspective on what it <em>means</em> to compute from type
+        classes to laziness to combinators to, yes, monads. (Man, I feel like
+        someone trying to explain what an acid trip is like.)
+      </p>
+      <p>
+        But despite all that experience, I conclude that writing Haskell code is
+        hard. I don't mean that in the "math is hard, let's give up", sense, but
+        that getting from an empty page to a program that does the job is a
+        harder process than it is with e.g. Perl. A resulting correct Haskell
+        program is likely more reliable, maintainable, and perhaps faster, but
+        getting to that point (framing your problem the right way, knowing how
+        to profile or deal with space leaks, understanding when
+        <code>unsafePerformIO</code> is actually the right thing) is just too
+        much effort.
+      </p>
+      <p>Here's a diagram summarizing the problem:</p>
+      <p><img src="haskell.png" /></p>
+      <p>
+        If you've written a Haskell program that runs, it's highly likely to be
+        a correct solution; but the set of runnable Haskell programs is much
+        smaller than the space of programs that get the job done, and frequently
+        I'm more interested in being done.
+      </p>
+      <p>
+        I find myself digging up Haskell sometimes for when I want sketch
+        something out mathematically: writing a program to answer a question
+        like "how many different ways can I seat <em>n</em> people at
+        <em>m</em> tables given these extra constraints?" is a delight in
+        Haskell. But for the sorts of code I write, those parts are the small
+        ones; the bigger ones are parsing file formats when the input language
+        is not well specified or interacting with some grungy library.
+      </p>
+      <p>
+        (That point is the only point I wanted to make, but since there's
+        nowhere else to shove it in, I'll add: I also recently dug up some old
+        Haskell code I'd written in the past and found I was unable to compile
+        it due to the "DLL hell" that is package versioning of Hackage. It made
+        me grumpy.)
+      </p>
+      <p>
+        So, Haskell, I conclude: it was definitely worth my time, even if it had
+        only been so I can understand PL research papers. I can wholeheartedly
+        endorse you learning it as well. But I'm sad to say I don't imagine
+        myself basing a new major project (or company) around it.
+      </p>
+      <p>
+        Strangely lately I've been writing a lot of code in Go, which seems to
+        have attracted a lot of other people I know. I think of the Go language
+        as sort of the anti-Haskell: visually ugly, semantically warty, written
+        with apparently little regard for the state of the art in research — but
+        on the other hand, incredibly pragmatic throughout. A shining example of
+        worse is better.
+      </p>
+    </main>
+  </body>
+</html>

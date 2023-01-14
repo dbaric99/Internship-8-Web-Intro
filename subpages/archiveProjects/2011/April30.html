@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">An update on Ninja</a></h2>
+        <div>April 30, 2011</div>
+      </div>
+
+      <p>
+        I'm still a little embarrassed that I published my
+        <a href="">build system toy</a> but the response has been surprisingly
+        positive. I had mostly intended for it to be used by me and perhaps one
+        or two other Chrome developers who had similar sensistivity to latency.
+      </p>
+      <p>
+        But in addition from my few brave coworkers who have been using it for
+        their day-to-day development (of their own volition!) I've heard from
+        people working on a CMake backend, using Ninja in a Scheme-based
+        meta-build system for Erlang code (!), and even Windows developers. I've
+        received a bunch of patches and helpful comments from users, too; around
+        half of the commits over the last few months were from people other than
+        me. I don't pretend that my project is major but it does seem to at
+        least be useful for some others, which is about the most I ever hope
+        for.
+      </p>
+      <p>
+        It turns out that despite there already being surely hundreds of other
+        build systems, there was a tiny niche still available for yet another.
+        My current theory is this: frequently the build system is the outermost
+        layer in your project; if there is any feature you need while building
+        (e.g. "how can I make it generate a zip file of all the source files for
+        distribution purposes?"), then that feature must be implemented (or at
+        least supported) by the build system. This leads to scope creep,
+        <a href="http://msdn.microsoft.com/en-us/library/7szfhaft(v=vs.80).aspx"
+          >half-implemented programming languages</a
+        >, complexity; those subsequently lead to rejecting existing build
+        systems and starting over ("autotools is a mess!").
+      </p>
+      <p>
+        By my design I get to cheat: I get to say, "If your problem is not
+        expressed as straightforward commands that update files, go write a
+        program that reexpresses your problem in that form." (It also has the
+        nice consequence that this other program is effectively precomputing the
+        state that other build systems need to compute at runtime.) So if a
+        "<code>make dist</code>"-like rule that packages your source up is
+        important to you, then you need to generate build rules that list all of
+        your source files as the input to your zip command.
+      </p>
+      <p>
+        By drawing the line at this point I simultaneously keep the project
+        simple while counterintuitively allowing for more complexity than
+        "competing" projects; for example Visual Studio's solution file system
+        is great right up to the point where you want to do something that is
+        not provided for by their system, and at that point you're out of luck.
+      </p>
+      <hr />
+      <p>
+        I'm very worried about scope creep but I have a useful metric: does a
+        no-files-changed build of Chrome take about a second? If no, then I've
+        regressed. In fact, I did exactly this recently. The change was
+        innocuous enough: I didn't canonicalize paths in all the places I should
+        have, so these two commands would have different results:
+      </p>
+      <pre><code>ninja target
+        ninja ./target
+        </code></pre>
+      <p>
+        That's easy enough to fix (canonicalize the paths on input), but what
+        appeared to be the same problem in a build file bit me. Consider:
+      </p>
+      <pre><code>builddir = .
+        build $builddir/foo: [...]
+        </code></pre>
+      <p>
+        where we should also recognize that <code>./foo</code> and
+        <code>foo</code> are the same file. Again, it is easy enough to call the
+        path canonicalizer on paths in the build files but it turned out that
+        doing so regressed my performance metric by about 30%. (Remember, the
+        whole point of Ninja is that it is fast because it doesn't do very
+        much!)
+      </p>
+      <p>
+        In writing all of this project I made a point of resisting my urges to
+        be clever, instead writing everything as straightforwardly as possible,
+        so that I could profile and optimize the code paths that really matter.
+        (The huge mapping from paths to path metadata that I knew should've been
+        a hash table and not the more convenient <code>std::set</code>? Yes, the
+        profiler confirmed it should've been a hash table; that was a
+        multi-second startup gain.) So confronted with this canonicalization
+        problem I again turned to a profiler. It wasn't too hard to get the
+        function performing better, and in fact improving on the performance
+        before this fix by a few percent. I'm sure I still have some pretty
+        simple tweaks I could make to go yet faster; I just haven't needed them
+        yet.
+      </p>
+    </main>
+  </body>
+</html>

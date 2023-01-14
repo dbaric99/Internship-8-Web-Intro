@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">Links in a single page app</a></h2>
+        <div>February 18, 2014</div>
+      </div>
+
+      <p>
+        <em
+          >Updated: Since the original posting, this has been updated with some
+          corrections thanks to
+          <a href="http://pupius.co.uk/about/">Dan Pupius</a>.</em
+        >
+      </p>
+      <p>
+        Some websites benefit from the
+        <a href="http://en.wikipedia.org/wiki/Single-page_application"
+          >single page application</a
+        >
+        approach, which lets users navigate within the site without each
+        navigation being a full page load. Gmail is one obvious example. But
+        historically, the techniques used to implement single page applications
+        have also made it easy for implementers to make a frustrating site: one
+        where URLs don't make sense, where the back button doesn't work, or
+        where links don't behave like real HTML links.
+      </p>
+      <p>
+        Here's an approach to implementing the single page pattern on today's
+        web that makes it easy to get it right. It's based on three principles.
+      </p>
+      <ol>
+        <li>
+          <p>
+            <strong>Every view must have a real URL</strong>. On a normal web
+            page, at any time I can grab what's in my browser's URL bar and
+            either share it or bookmark it.
+          </p>
+        </li>
+        <li>
+          <p>
+            <strong>Every link must be a real link</strong>. On a normal web
+            page, I can view a link's destination by hovering it with my mouse;
+            right-clicking produces a menu of link-specific options. So many
+            otherwise-good pages try to implement their own link-like behavior
+            by catching clicks on specific DOM nodes but then screw up corner
+            case behaviors like middle-click.
+          </p>
+        </li>
+        <li>
+          <p>
+            <strong>It's ok to be less awesome on old browsers.</strong> (Of
+            course, whether this is actually true depends on your site's goals.)
+            One tactic for old browsers is just to fail gracefully: if the site
+            still works but is just slower, that's ok. For example, Gmail used
+            to implement each of its buttons with a soup of DOM nodes to get the
+            gradients and rounded corners to show on IE6; on today's web, maybe
+            it's ok to just use some newer CSS for those effects and allow the
+            buttons to be square and flat on IE6.
+          </p>
+        </li>
+      </ol>
+      <p>
+        Now let's put these constraints together. Because of principle 1, your
+        app must be capable of rendering any given view from scratch, because
+        the URL load might be a freshly started browser that just loaded a
+        bookmark. Because of principle 2, your links must be implemented as
+        plain old <code>&lt;a&gt;</code> tags with an <code>href</code> that
+        points at the URL of the resulting view.
+      </p>
+      <p>
+        In fact, you could stop there and you'd have a working site: each link
+        click would just load the target as a new URL. That satisfies principle
+        3.
+      </p>
+      <p>
+        And here, finally, you can sprinkle in the single-page magic. What you
+        want to do is short-circuit some of those link clicks such that the page
+        updates. You can do this in one central place by just intercepting
+        clicks on <code>&lt;a&gt;</code> tags right before the browser is about
+        to use them to navigate, and then use the
+        <a
+          href="https://developer.mozilla.org/en-US/docs/Web/Guide/API/DOM/Manipulating_the_browser_history"
+          ><code>history.pushState</code></a
+        >
+        API to make the URL update appropriately.
+      </p>
+      <pre><span class="comment-delimiter">// </span><span class="comment">Left to the reader: imagine some "app" object with methods whose
+        </span><span class="comment-delimiter">// </span><span class="comment">implementations will be obvious from their use.
+        </span><span class="keyword">var</span> <span class="variable-name">app</span> = ...;
+        
+        <span class="comment-delimiter">// </span><span class="comment">Catch clicks on the root-level element.
+        </span>document.body.addEventListener(<span class="string">'click'</span>, <span class="keyword">function</span>(<span class="variable-name">event</span>) {
+          <span class="keyword">var</span> <span class="variable-name">tag</span> = event.target;
+          <span class="keyword">if</span> (tag.tagName == <span class="string">'A'</span> &amp;&amp; tag.href &amp;&amp; event.button == 0) {
+            <span class="comment-delimiter">// </span><span class="comment">It's a left click on an &lt;a href=...&gt;.
+        </span>    <span class="keyword">if</span> (tag.origin == document.location.origin) {
+              <span class="comment-delimiter">// </span><span class="comment">It's a same-origin navigation: a link within the site.
+        </span>
+              <span class="comment-delimiter">// </span><span class="comment">Now check that the the app is capable of doing a
+        </span>      <span class="comment-delimiter">// </span><span class="comment">within-page update.  (You might also take .query into
+        </span>      <span class="comment-delimiter">// </span><span class="comment">account.)
+        </span>      <span class="keyword">var</span> <span class="variable-name">oldPath</span> = document.location.pathname;
+              <span class="keyword">var</span> <span class="variable-name">newPath</span> = tag.pathname;
+              <span class="keyword">if</span> (app.capableOfRendering(newPath)) {
+                <span class="comment-delimiter">// </span><span class="comment">Prevent the browser from doing the navigation.
+        </span>        e.preventDefault();
+                <span class="comment-delimiter">// </span><span class="comment">Let the app handle it.
+        </span>        app.render(newPath);
+                history.pushState(<span class="constant">null</span>, <span class="string">''</span>, path);
+              }
+            }
+          }
+        });
+        
+        <span class="comment-delimiter">// </span><span class="comment">Also transition when the user navigates back.
+        </span>window.onpopstate = <span class="keyword">function</span>(<span class="variable-name">event</span>) {
+          app.render(document.location.pathname);
+          event.preventDefault();
+        };
+        </pre>
+      <p>Some additional notes:</p>
+      <ul>
+        <li>
+          <p>
+            This implementation relies on the URL as the primary way of
+            referring to a state. This means that there's only a single code
+            path for rendering that is shared both by a fresh navigation and by
+            within-app navigations, reducing the chances of those codepaths
+            skewing.
+          </p>
+        </li>
+        <li>
+          <p>
+            The <code>app.capableOfRendering</code> check can simply check your
+            JavaScript URL routing code, and punt on anything that isn't
+            rendered in client-side JavaScript. For example, if your site has a
+            blog section that isn't really part of your app, by returning
+            <code>false</code> here the browser will just do a plain navigation
+            to that part of the site.
+          </p>
+        </li>
+        <li>
+          <p>
+            This implementation intercepts all link clicks, which you might
+            think means it'll ruin links for actions that don't have URLs. For
+            example, you might have a little "change" link next to a text field
+            to flip it into an in-place editor, as described towards the end of
+            <a href="">my earlier post</a>. My answer is that because these
+            "links" don't have URLs — there's no reason to open them in a new
+            tab, for example — they are not actually links, and you shouldn't
+            use an <code>&lt;a&gt;</code> tag for them as you don't want the
+            other behaviors (like showing the URL when you hover the link). You
+            might be tempted to instead make this a
+            <code>&lt;div&gt;</code> with some <code>onclick</code> behavior,
+            but if you do so you're again attempting to be more clever than a
+            browser, and that will likely have other consequences (for example,
+            keyboard focus will be wrong). If it's really a button in its
+            behavior you could instead just style a <code>&lt;button&gt;</code>.
+          </p>
+        </li>
+        <li>
+          <p>
+            This implementation is incomplete. Its button handling may be wrong
+            for IE, it eats navigations to <code>#fragments</code>, it also
+            should check the state of modifier keys, and it should handle clicks
+            on nodes contained within an <code>&lt;a&gt;</code> tag. These
+            issues are small tweaks on the core idea; I left some out for
+            brevity and mistakenly overlooked others. I think the right way to
+            think about it is: whitelist in the one particular case you care
+            about (left click with no modifier keys held on an
+            <code>&lt;a&gt;</code> tag that's on-origin for a known path with no
+            fragment) and let the browser handle the rest.
+          </p>
+        </li>
+        <li>
+          <p>
+            This implementation totally doesn't work with search engines (unless
+            they are capable of running your site's JavaScript). That is a
+            subject for another post. The above is sufficient if your site isn't
+            intended to be crawlable (again, like Gmail).
+          </p>
+        </li>
+      </ul>
+    </main>
+  </body>
+</html>

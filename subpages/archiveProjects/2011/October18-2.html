@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">Arch for Debian users</a></h2>
+        <div>October 18, 2011</div>
+      </div>
+
+      <p>
+        I'm a long-time Debian user, since the mid-90s or so. I like their
+        technical decisions some but what I really like is their
+        <a href="http://www.debian.org/social_contract">culture and goals</a>. I
+        still wear with pride my old Debian shirt from the time I helped staff a
+        booth at a conference. Later I reluctantly switched to Ubuntu after I
+        repeatedly couldn't get my laptop wifi/sleep to work.
+      </p>
+      <p>
+        I recently got a new desktop system and hesitated when considering what
+        to put on it. I don't much enjoy fighting with details and would prefer
+        a system that just works, but I'm tired of fighting with
+        <a href="http://www.jwz.org/doc/cadt.html">CADT</a>-developed GUIs; both
+        Gnome3 and Unity are too heavy and fiddly for what I want —
+        <a
+          href="https://neugierig.org/software/blog/2011/09/platform-of-the-future.html"
+          >browsers and terminals</a
+        >.
+      </p>
+      <p>
+        I probably should've gone with Debian, but when I thought to my memories
+        of it I also remembered it being heavy with policy: how the alternatives
+        system always somehow picks the wrong program, how dpkg takes forever to
+        update its database on each run, how the available software is always
+        out of date. My work on Chromium has made me increasingly convinced that
+        Linux distributions and policies are actually kind of the enemy of
+        progress in the Linux world. I wanted something more minimal.
+      </p>
+      <p>
+        Over the years I've glanced at gentoo once or twice but I think the
+        optimization fixation and building software from source is silly. And
+        then there's Arch, which I'd ignored as a gratuitous gentoo clone. But
+        recently I glanced at their home page again and saw their primary slogan
+        is about keeping it simple, and thought: if there's anything I want
+        after "working", it's simple, so I thought I'd give it a spin and report
+        back for others like me.
+      </p>
+      <h3>System and culture overview</h3>
+      <p>
+        Out of the box your new system boots to a terminal and that's it.
+        Installing even ssh or X is left to you. If I were to summarize the
+        total Arch experience briefly, I'd say it's user-friendly if you know
+        what you're doing.
+      </p>
+      <p>
+        Most questions I've had have been answered by their extensive wiki,
+        which has been consistently good. Everything I've needed I found with
+        simple Google queries: e.g. [arch ssh] brings up the wiki page that
+        decribes both how ssh is installed and what you might want to configure.
+      </p>
+      <p>
+        Needing to know what you're doing contradicts my goal of Just Working,
+        but there's a point where the other goal of Simple wins. I haven't yet
+        figured out the balance, but lately I've been on a simplicity kick.
+      </p>
+      <p>
+        For example, I knew that I had to install X and a window manager to get
+        a GUI, and that that the keyword <code>ACPI</code> was the right place
+        to start to look into power management (which also reminded me to set up
+        CPU speed downscaling). For all of those instances, sticking the terms
+        plus <code>arch</code> into a search found me a page that described it
+        in straightforward terms.
+      </p>
+      <p>
+        (That previous paragraph surely provokes a "buy a Mac" response in most
+        people — almost including myself — but lately I've come to see ease of
+        use as something that trades off with control: Mac window management
+        drives me crazy, so I'm willing to pay a bit more in terms of fiddling
+        if it means I can change the things I care about.)
+      </p>
+      <p>
+        In sum I found getting my system working the way I want it to pretty
+        easy, but I imagine if I didn't know how to describe the parts I wanted
+        it would have been frustrating.
+      </p>
+      <h3>Packaging overview</h3>
+      <p>
+        Much like Debian, software is built centrally upstream and downloaded as
+        packages, and there's a local dependency database that you can sync and
+        query. There's no concept (as far as I can tell) of releases, or stable
+        vs unstable, just "current"; it seems a recipe for disaster as soon as a
+        large system update is needed but I'm withholding judgement.
+      </p>
+      <p>
+        I especially enjoyed, keeping with the theme of simplicity, that
+        packages are typically named just like upstream. There is no split
+        between binaries/dev/doc. So e.g. instead of
+        <code>libcairo2-dev</code> you want to install just
+        <code>cairo</code> which includes binaries as well as headers and man
+        pages. Similarly, the actual package files (not that you deal with them
+        much) are tarballs of the build tree with one extra metadata file.
+      </p>
+      <p>
+        (The one major exception is that they renamed
+        <code>/usr/bin/python</code> to <code>/usr/bin/python2</code>, and most
+        packages involving python are named like
+        <code>python2-foobar</code> with <code>python-foobar</code> as the
+        Python 3 version. It'd be nice if we could go back in time and change
+        every program to agree with this renaming, but that's not gonna happen;
+        I fixed this with a symlink.)
+      </p>
+      <h3>Repositories</h3>
+      <p>
+        So far everything I've looked for (including Chromium) is part of the
+        main software repository. (I was pleased to see their package of
+        Chromium includes the sandbox unmolested as well as the non-free codecs.
+        I remain regretful that Chromium is a total beast to build.)
+      </p>
+      <p>
+        But there is also a notion of experimental software, which is collected
+        in a separate repository (called AUR) of user-submitted build scripts
+        (called <code>PKGBUILD</code>s). You are required to compile such
+        software yourself. I noted with some amusement that my
+        <a href="http://aur.archlinux.org/packages.php?ID=46233"
+          >Ninja build system is available in it</a
+        >.
+      </p>
+      <p>
+        Once you have downloaded a build script, the
+        <code>makepkg</code> command (analagous to
+        <code>dpkg-buildpackage</code>) runs it and produces a package that can
+        be installed with <code>pacman</code>. It appears there is
+        <a href="https://wiki.archlinux.org/index.php/AUR_Helpers"
+          >no recommended way to fetch these from AUR</a
+        >, though I've seen many online mentions of <code>yaourt</code>, which
+        seems fine enough (though the gratuitous colors in its output are a bit
+        annoying).
+      </p>
+      <h3>Apt/dpkg vs Pacman</h3>
+      <p>
+        Pacman lays out its subcommands in a different arrangement than the
+        Debian suite. I found it only took me a day or two for the new flag
+        names to become natural.
+      </p>
+      <p>
+        There's only one tool: <code>pacman</code>, which subsumes
+        <code>apt-get</code>, <code>dpkg</code>, <code>dpkg-deb</code>, etc.
+        It's surely missing some feature of those tools but I haven't noticed
+        yet. All commands follow a pattern: first there's a mode flag with a
+        capital letter, then sometimes a submode with a lowercase letter. The
+        important modes are:
+      </p>
+      <ul>
+        <li>
+          <p>
+            <code>-Q</code>: query the local database. <code>-Ql</code> lists
+            files in an installed package (<code>dpkg -L</code>);
+            <code>-Qo</code> reports which package owns a file on disk (<code
+              >dpkg -S</code
+            >); <code>-Qi</code> reports info about an installed package (<code
+              >dpkg -i</code
+            >).
+          </p>
+        </li>
+        <li>
+          <p>
+            <code>-S</code> (mnemonic: sync(?)): do something that (at least in
+            concept) works with the remote database. <code>-Sy</code> refreshes
+            the software index (like <code>apt-get update</code>);
+            <code>-S</code> installs a package (<code>apt-get install</code>);
+            and importantly <code>-Ss</code> greps the local copy of the remote
+            database (like <code>apt-cache search</code>).
+          </p>
+        </li>
+        <li>
+          <p>
+            To get source code for a package (<code>apt-get source</code>), you
+            need to install the Arch ports tree equivalent ABS (<code
+              >pacman -S abs</code
+            >). Then <code>sudo abs</code> to <code>rsync</code> the tree down
+            into <code>/var/abs</code>.
+          </p>
+        </li>
+      </ul>
+      <h2>Software setup</h2>
+      <p>
+        Daemons like ssh install a startup script in <code>/etc/rc.d</code> but
+        it's also left to you to link them in to startup (<code
+          >/etc/rc.conf</code
+        >
+        contains a bash array listing scripts to start/stop from the
+        <code>rc.d</code> directory). This is described in the install
+        instructions, but I note it in part because this strategy is a perfect
+        example of the sort of simplicity I was hoping for: no
+        <code>update-rc.d</code> script, no symlinks prefixed with numbers, just
+        one file that says what to run. (On my system, that file, which covers
+        locale, kernel modules, network setup, daemons, etc. is just 21 lines
+        long if you don't count comments or blanks.)
+      </p>
+      <p>
+        I had expected getting the NVIDIA binary-only X drivers to be a hassle,
+        but much like everything else, searching for [arch nvidia] brought up a
+        wiki page that made it simple.
+      </p>
+      <p>
+        When running one tool I found it wanted to bring up an editor. It
+        brought a happy tear to my eye to see it request I set
+        <code>$EDITOR</code> in my environment. I didn't realize how much I
+        disliked Debian's alternatives system until I was free of it.
+      </p>
+      <h3>Third-party software</h3>
+      <p>
+        A few weeks after feeling comfortable with the system I thought to try
+        setting up my printer, which I didn't expect to work. (<a
+          href="https://github.com/martine/envelope"
+          >Read more about my printing fiasco</a
+        >.) The vendor actually provides a source tarball of their Linux
+        packages (I picked the printer in part for its Linux support) but that
+        tarball contains binary shared objects, which were 32-bit binaries,
+        which my system had no support for... and I expected all of this was
+        going to be a huge hassle.
+      </p>
+      <p>
+        But it turned out in the user software repository someone had already
+        set up
+        <a href="https://aur.archlinux.org/packages.php?ID=46698"
+          >a script to fetch Pixma 870 drivers</a
+        >, and it worked just fine. I am still a little amazed it works. I think
+        I just got lucky.
+      </p>
+      <h3>Summary</h3>
+      <p>
+        Current versions of everything, simple tools, binary packages, good
+        docs? Sounds too good to be true, and it likely is. It remains to be
+        seen how hard it will break on updates, but otherwise so far I'm
+        pleased.
+      </p>
+      <p>
+        I suspect I wouldn't run Arch on a server (where I'm more interested in
+        centralized management and getting timely security updates) nor on a
+        laptop (where I'm more interested in having someone else work through
+        the power management and wifi soup), but for a desktop workstation it
+        seems like just what I wanted. We'll see.
+      </p>
+    </main>
+  </body>
+</html>

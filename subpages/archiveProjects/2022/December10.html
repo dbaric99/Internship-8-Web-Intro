@@ -1,314 +1,349 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tech Notes: Two surprises in browser crashes</title>
-</head>
-<body>
-    
+  </head>
+  <body>
     <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
         <div>
-            <h1>
-                <a href="./subpages/neugierig.html">neugierig.org: </a>
-                <a href="">Tech Notes</a>
-            </h1>
-            <div>
-                <span>
-                    You're reading a single entry. Go <a href="../blog.html">back to the front page</a> for more.
-                </span>
-            </div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
         </div>
+      </div>
     </header>
 
     <main>
-        <div>
-            <h2><a href="">Two surprises in browser crashes</a></h2>
-            <span>December 10, 2022</span>
-        </div>
+      <div>
+        <h2><a href="">Two surprises in browser crashes</a></h2>
+        <span>December 10, 2022</span>
+      </div>
 
-        <p>
-            Web development can be overwhelming, with frameworks and tools continually churning. Here's some advice that has worked well for me on my own projects which emphasizes simplicity, stability, and predictability. The recommendations I make here are only for tools that are high quality and which are unlikely to change significantly in the future.
-        </p>
+      <p>
+        Web development can be overwhelming, with frameworks and tools
+        continually churning. Here's some advice that has worked well for me on
+        my own projects which emphasizes simplicity, stability, and
+        predictability. The recommendations I make here are only for tools that
+        are high quality and which are unlikely to change significantly in the
+        future.
+      </p>
 
-        <p>
-            Like most things I write on this blog, my intended audience is more or less "me if I didn't know this stuff already", so if you're say a C++ developer who isn't super familiar with nodejs etc and just wants to write a bit of TypeScript then this is the post for you. People have a lot of strong opinions about this stuff — to my mind, too strong, when a lot of the details really just don't matter that much, especially given how whimsical web fashion is — but if you are such a person then this post is certainly not for you!
-        </p>
-        
-        <p>
-            To start with, we're not going to use any preconfigured template repository. Blog posts like this one seem to usually start with "copy my setup" but that feels like the opposite of what I want — I want the fewest moving parts possible and to be able understand what pieces I do use are for.
-        </p>
+      <p>
+        Like most things I write on this blog, my intended audience is more or
+        less "me if I didn't know this stuff already", so if you're say a C++
+        developer who isn't super familiar with nodejs etc and just wants to
+        write a bit of TypeScript then this is the post for you. People have a
+        lot of strong opinions about this stuff — to my mind, too strong, when a
+        lot of the details really just don't matter that much, especially given
+        how whimsical web fashion is — but if you are such a person then this
+        post is certainly not for you!
+      </p>
 
-        <p>
-            Instead we start from scratch:
-        </p>
+      <p>
+        To start with, we're not going to use any preconfigured template
+        repository. Blog posts like this one seem to usually start with "copy my
+        setup" but that feels like the opposite of what I want — I want the
+        fewest moving parts possible and to be able understand what pieces I do
+        use are for.
+      </p>
 
-        <p>
-            <code>
-                $ mkdir myproject<br>
-                $ cd myproject
-            </code>
-        </p>
+      <p>Instead we start from scratch:</p>
 
-        <p>
-            Next, for frontend tooling, npm is inevitable. (Installing nodejs/npm is out of scope here since it's OS-dependent but it's trivial.) Make your project a root directory for npm dependencies, bypassing any questions:
-        </p>
+      <p>
+        <code>
+          $ mkdir myproject<br />
+          $ cd myproject
+        </code>
+      </p>
 
-        <p>
-            <code>
-                $ npm init -y
-            </code>
-        </p>
+      <p>
+        Next, for frontend tooling, npm is inevitable. (Installing nodejs/npm is
+        out of scope here since it's OS-dependent but it's trivial.) Make your
+        project a root directory for npm dependencies, bypassing any questions:
+      </p>
 
-        <p>
-            This generates package.json. Most of its contents aren't necessary, feel free to edit.
-        </p>
+      <p>
+        <code> $ npm init -y </code>
+      </p>
 
-        <p>
-            With npm in place we install TypeScript. I think of TypeScript as the bare minimum for keeping sane writing JS and it's a self-contained dependency. We install a copy of TypeScript per project because we want the TypeScript compiler version pinned to the project, which makes it resilient to bitrotting as new TypeScript versions come out.
-        </p>
+      <p>
+        This generates package.json. Most of its contents aren't necessary, feel
+        free to edit.
+      </p>
 
-        <p>
-            <code>
-                $ npm install typescript
-            </code>
-        </p>
+      <p>
+        With npm in place we install TypeScript. I think of TypeScript as the
+        bare minimum for keeping sane writing JS and it's a self-contained
+        dependency. We install a copy of TypeScript per project because we want
+        the TypeScript compiler version pinned to the project, which makes it
+        resilient to bitrotting as new TypeScript versions come out.
+      </p>
 
-        <p>
-            This downloads the compiler into the node_modules directory, updates <code>package.json</code>, and adds package-lock.json, which records the pinned version of the compiler.
-        </p>
+      <p>
+        <code> $ npm install typescript </code>
+      </p>
 
-        <p>
-            Next we mark the repository as a TypeScript root.
-        </p>
+      <p>
+        This downloads the compiler into the node_modules directory, updates
+        <code>package.json</code>, and adds package-lock.json, which records the
+        pinned version of the compiler.
+      </p>
 
-        <p>
-            <code>
-                $ npx tsc --init
-            </code>
-        </p>
+      <p>Next we mark the repository as a TypeScript root.</p>
 
-        <p>
-            Note the command there is <code>npx</code>, which means "run a binary found within the local node_modules". <code>tsc</code> is the TypeScript compiler, and <code>--init</code> has it generate a <code>tsconfig.json</code>, which configures the compiler. The bulk of this file is commented out; the defaults are mostly fine. However, if you intend to use any libraries from npm (see below) you will need to switch it from the default, backward compatible module resolution to the more expected npm-compatible behavior by uncommenting this line:
-        </p>
+      <p>
+        <code> $ npx tsc --init </code>
+      </p>
 
-        <p>
-            <code>
-                "moduleResolution": "node",
-            </code>
-        </p>
+      <p>
+        Note the command there is <code>npx</code>, which means "run a binary
+        found within the local node_modules". <code>tsc</code> is the TypeScript
+        compiler, and <code>--init</code> has it generate a
+        <code>tsconfig.json</code>, which configures the compiler. The bulk of
+        this file is commented out; the defaults are mostly fine. However, if
+        you intend to use any libraries from npm (see below) you will need to
+        switch it from the default, backward compatible module resolution to the
+        more expected npm-compatible behavior by uncommenting this line:
+      </p>
 
-        <p>
-            At this point if you create any <code>.ts</code> files, VSCode etc. will type-check them as you edit. Running <code>npx tsc</code> will type-check and also convert <code>.ts</code> files to <code>.js</code>.
-        </p>
+      <p>
+        <code> "moduleResolution": "node", </code>
+      </p>
 
-        <p>
-            Create some trivial inputs to try it out:
-        </p>
+      <p>
+        At this point if you create any <code>.ts</code> files, VSCode etc. will
+        type-check them as you edit. Running <code>npx tsc</code> will
+        type-check and also convert <code>.ts</code> files to <code>.js</code>.
+      </p>
 
-        <p>
-            <code>
-                $ echo "document.write('hello, world');" > main.ts<br>
-                $ echo "&lt;script src='main.js'&gt;&lt;/script&gt;" > index.html
-            </code>
-        </p>
+      <p>Create some trivial inputs to try it out:</p>
 
-        <p>
-            Unfortunately, TypeScript is only responsible for single file translation, and by default generates imports in a format compatible with nodejs but not browsers. Any realistic web project will involve multiple source files or dependencies and will require one last tool, a "bundler".
-        </p>
+      <p>
+        <code>
+          $ echo "document.write('hello, world');" > main.ts<br />
+          $ echo "&lt;script src='main.js'&gt;&lt;/script&gt;" > index.html
+        </code>
+      </p>
 
-        <p>
-            Typically this is where tools like webpack get involved and your complexity budget is immediately blown. Instead, I recommend esbuild, which is (consistent with the spirit of this post) minimal, self-contained, and fast.
-        </p>
+      <p>
+        Unfortunately, TypeScript is only responsible for single file
+        translation, and by default generates imports in a format compatible
+        with nodejs but not browsers. Any realistic web project will involve
+        multiple source files or dependencies and will require one last tool, a
+        "bundler".
+      </p>
 
-        <p>
-            So add esbuild as a dependency, downloading a copy into <code>node_modules</code>:
-        </p>
+      <p>
+        Typically this is where tools like webpack get involved and your
+        complexity budget is immediately blown. Instead, I recommend esbuild,
+        which is (consistent with the spirit of this post) minimal,
+        self-contained, and fast.
+      </p>
 
-        <p>
-            <code>
-                $ npm install esbuild
-            </code>
-        </p>
+      <p>
+        So add esbuild as a dependency, downloading a copy into
+        <code>node_modules</code>:
+      </p>
 
-        <p>
-            We invoke esbuild in two ways: to generate an output bundle and while developing. (You really only need the former if you're just willing to run it after each edit, but it's pretty easy to do both and it saves needing some other tools.)
-        </p>
+      <p>
+        <code> $ npm install esbuild </code>
+      </p>
 
-        <p>
-            esbuild has no configuration file; it's managed solely through command-line flags. The command to generate a single-file bundle from an input file will look something like this:
-        </p>
-        
-        <p>
-            <code>
-                $ npx esbuild --bundle --target=es2020 --sourcemap --outfile=main.js main.ts
-            </code>
-        </p>
+      <p>
+        We invoke esbuild in two ways: to generate an output bundle and while
+        developing. (You really only need the former if you're just willing to
+        run it after each edit, but it's pretty easy to do both and it saves
+        needing some other tools.)
+      </p>
 
-        <p>
-            This generates a file <code>main.js</code> by crawling imports found in the given input file. The <code>--sourcemap</code> flag lets you debug <code>.ts</code> source in a browser. (You'll want to add <code>*.js</code> and <code>*.js.map</code> to your <code>.gitignore</code>.)
-        </p>
+      <p>
+        esbuild has no configuration file; it's managed solely through
+        command-line flags. The command to generate a single-file bundle from an
+        input file will look something like this:
+      </p>
 
-        <p>
-            You can just stick this command in a shell script or Makefile, or you can stick it in your package.json in the scripts block:
-        </p>
+      <p>
+        <code>
+          $ npx esbuild --bundle --target=es2020 --sourcemap --outfile=main.js
+          main.ts
+        </code>
+      </p>
 
-        <p>
-            <code>
-                "scripts": {<br>
-                    "bundle": "esbuild --bundle --target=es2020 --sourcemap --outfile=main.js main.ts"<br>
-                  }
-            </code>
-        </p>
+      <p>
+        This generates a file <code>main.js</code> by crawling imports found in
+        the given input file. The <code>--sourcemap</code> flag lets you debug
+        <code>.ts</code> source in a browser. (You'll want to add
+        <code>*.js</code> and <code>*.js.map</code> to your
+        <code>.gitignore</code>.)
+      </p>
 
-        <p>
-            and invoke it via <code>npm run bundle</code>. (Note you don't need the <code>npx</code> prefix in the <code>package.json</code> command, it knows to find the binary itself.)
-        </p>
+      <p>
+        You can just stick this command in a shell script or Makefile, or you
+        can stick it in your package.json in the scripts block:
+      </p>
 
-        <p>
-            Finally, the other way to use esbuild while developing is to have it run a web server that automatically bundles when you reload the page. This means you can save and hit reload to get updated output without needing to run any build commands. It also means you will load the app via HTTP rather than the files directly, which is necessary for some web APIs (like <code>fetch</code>) to work.
-        </p>
+      <p>
+        <code>
+          "scripts": {<br />
+          "bundle": "esbuild --bundle --target=es2020 --sourcemap
+          --outfile=main.js main.ts"<br />
+          }
+        </code>
+      </p>
 
-        <p>
-            The esbuild command here is exactly like the above with the addition of one flag:
-        </p>
+      <p>
+        and invoke it via <code>npm run bundle</code>. (Note you don't need the
+        <code>npx</code> prefix in the <code>package.json</code> command, it
+        knows to find the binary itself.)
+      </p>
 
-        <p>
-            <code>$ npx esbuild [above flags] --servedir=.</code>
-        </p>
+      <p>
+        Finally, the other way to use esbuild while developing is to have it run
+        a web server that automatically bundles when you reload the page. This
+        means you can save and hit reload to get updated output without needing
+        to run any build commands. It also means you will load the app via HTTP
+        rather than the files directly, which is necessary for some web APIs
+        (like <code>fetch</code>) to work.
+      </p>
 
-        <p>
-            It will print a URL to load when you run it. This web server serves <code>index.html</code> (and other files like <code>*.css</code>) verbatim, but specifically when the browser loads <code>main.js</code> it will manage converting it from TypeScript.
-        </p>
+      <p>
+        The esbuild command here is exactly like the above with the addition of
+        one flag:
+      </p>
 
-        <p>
-            Note that the <code>esbuild</code> command does not run any TypeScript checks. If your
-            editor isn't running TypeScript checking for you, you can still invoke <code>npx tsc</code>
-            yourself (and on CI). If you do so, I suggest twiddling <code>tsconfig.json</code> to
-            uncomment the
-        </p>
+      <p>
+        <code>$ npx esbuild [above flags] --servedir=.</code>
+      </p>
 
-        <p>
-            <code>
-                "noEmit": true,
-            </code>
-        </p>
+      <p>
+        It will print a URL to load when you run it. This web server serves
+        <code>index.html</code> (and other files like <code>*.css</code>)
+        verbatim, but specifically when the browser loads
+        <code>main.js</code> it will manage converting it from TypeScript.
+      </p>
 
-        <p>
-            line so that TypeScript doesn't emit any outputs — you want to use only one
-            tool (esbuild) for this.
-        </p>
+      <p>
+        Note that the <code>esbuild</code> command does not run any TypeScript
+        checks. If your editor isn't running TypeScript checking for you, you
+        can still invoke <code>npx tsc</code> yourself (and on CI). If you do
+        so, I suggest twiddling <code>tsconfig.json</code> to uncomment the
+      </p>
 
-        <p>
-            And with that, you're ready to go!
-        </p>
+      <p>
+        <code> "noEmit": true, </code>
+      </p>
 
-        <p>
-            You might have some follow-up questions for recommendations which I will
-            summarize in list form:
-        </p>
+      <p>
+        line so that TypeScript doesn't emit any outputs — you want to use only
+        one tool (esbuild) for this.
+      </p>
 
-        <ul>
-            <li>
-                <strong>Autoformatting.</strong> prettier is standard but clunky and is set up similarly to
-                how other tools here have been set up. dprint is a newer replacement that I
-                have liked more but it's newer and riskier.
-            </li>
-            <li>
-                <strong>Linting.</strong> The current state of the ecosystem is a general mess, I suggest
-                avoiding it.
-            </li>
-            <li>
-                <strong>
-                    CSS languages.</strong> Too complex for my taste, possibly also because my projects
-                    tend to not be that visually complex.
-                </li>
-            <li>
-                <strong>Web frameworks.</strong> This is a much more complex topic, worth an appendix!
-            </li>
-        </ul>
+      <p>And with that, you're ready to go!</p>
 
-        <hr>
+      <p>
+        You might have some follow-up questions for recommendations which I will
+        summarize in list form:
+      </p>
 
-        <p>
-            Appendix: web frameworks.
-        </p>
+      <ul>
+        <li>
+          <strong>Autoformatting.</strong> prettier is standard but clunky and
+          is set up similarly to how other tools here have been set up. dprint
+          is a newer replacement that I have liked more but it's newer and
+          riskier.
+        </li>
+        <li>
+          <strong>Linting.</strong> The current state of the ecosystem is a
+          general mess, I suggest avoiding it.
+        </li>
+        <li>
+          <strong> CSS languages.</strong> Too complex for my taste, possibly
+          also because my projects tend to not be that visually complex.
+        </li>
+        <li>
+          <strong>Web frameworks.</strong> This is a much more complex topic,
+          worth an appendix!
+        </li>
+      </ul>
 
-        <p>
-            The above is all you need to get started, but commonly the next thing you might
-            want is to use some sort of web framework. There are a lot of these and
-            depending on how fancy you get the framework itself will dictate its own
-            versions of the above tools. A lot of the churn in web development is around
-            frameworks, so if you're looking to stay simple and predictable adopting any of
-            them is probably not the path you want.
-        </p>
+      <hr />
 
-        <p>
-            But if you're again looking to stay simple and predictable, I have been happy
-            with Preact, which is an API-compatible implementation of the industry-dominant
-            React framework that is only 3kb. Unlike the above recommendations, I would note
-            there's more potential for churn if you depend on Preact. But one nice property
-            of Preact in particular is that it's intended to be a simpler React so it has a
-            combination of limited API (due to small size) and well-understood standard API.
-        </p>
+      <p>Appendix: web frameworks.</p>
 
-        <p>
-            To modify the above project to use Preact, you need to install it:
-        </p>
+      <p>
+        The above is all you need to get started, but commonly the next thing
+        you might want is to use some sort of web framework. There are a lot of
+        these and depending on how fancy you get the framework itself will
+        dictate its own versions of the above tools. A lot of the churn in web
+        development is around frameworks, so if you're looking to stay simple
+        and predictable adopting any of them is probably not the path you want.
+      </p>
 
-        <p>
-            <code>
-                $ npm install preact
-            </code>
-        </p>
+      <p>
+        But if you're again looking to stay simple and predictable, I have been
+        happy with Preact, which is an API-compatible implementation of the
+        industry-dominant React framework that is only 3kb. Unlike the above
+        recommendations, I would note there's more potential for churn if you
+        depend on Preact. But one nice property of Preact in particular is that
+        it's intended to be a simpler React so it has a combination of limited
+        API (due to small size) and well-understood standard API.
+      </p>
 
-        <p>
-            Rename <code>main.ts</code> into <code>main.tsx</code> and update the build commands to refer to the
-            new path.
-        </p>
+      <p>To modify the above project to use Preact, you need to install it:</p>
 
-        <p>
-            Tell TypeScript/esbuild to interpret the <code>.tsx</code> file as preact by changing two
-            settings within <code>tsconfig.json</code>:
-        </p>
+      <p>
+        <code> $ npm install preact </code>
+      </p>
 
-        <p>
-            <code>
-                "jsx": "react-jsx",<br>
-                "jsxImportSource": "preact",
-            </code>
-        </p>
+      <p>
+        Rename <code>main.ts</code> into <code>main.tsx</code> and update the
+        build commands to refer to the new path.
+      </p>
 
-        <p>
-            For completeness, I'll change the source files to a preact hello-world. Add a
-            body tag to <code>index.html</code>:
-        </p>
+      <p>
+        Tell TypeScript/esbuild to interpret the <code>.tsx</code> file as
+        preact by changing two settings within <code>tsconfig.json</code>:
+      </p>
 
-        <p>
-            <code>
-                &lt;body&gt;&lt;/body&gt;<br>
-                &lt;script src='main.js'&gt;&lt;/script&gt;
-            </code>
-        </p>
+      <p>
+        <code>
+          "jsx": "react-jsx",<br />
+          "jsxImportSource": "preact",
+        </code>
+      </p>
 
-        <p>
-            And call into preact from <code>main.tsx</code>:
-        </p>
+      <p>
+        For completeness, I'll change the source files to a preact hello-world.
+        Add a body tag to <code>index.html</code>:
+      </p>
 
-        <p>
-            <code>
-                import * as preact from 'preact';<br><br>
+      <p>
+        <code>
+          &lt;body&gt;&lt;/body&gt;<br />
+          &lt;script src='main.js'&gt;&lt;/script&gt;
+        </code>
+      </p>
 
-                preact.render(&lt;h1&gt;hello, world&lt;/h1&gt;, document.body);
-            </code>
-        </p>
+      <p>And call into preact from <code>main.tsx</code>:</p>
 
-        <p>
-            That ends up enough for most things I do, hope it works for you!
-        </p>
+      <p>
+        <code>
+          import * as preact from 'preact';<br /><br />
 
+          preact.render(&lt;h1&gt;hello, world&lt;/h1&gt;, document.body);
+        </code>
+      </p>
+
+      <p>That ends up enough for most things I do, hope it works for you!</p>
     </main>
-
-</body>
+  </body>
 </html>

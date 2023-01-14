@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">Instant backtraces in C/C++</a></h2>
+        <div>June 15, 2012</div>
+      </div>
+
+      <p>
+        In higher-level languages when there is a problem you get a nice
+        backtrace pointing at the problem. In C or C++ you typically just get
+        <code>Segmentation fault</code>. How can we improve this?
+      </p>
+      <p>
+        To start with, you can catch SEGV and try to do something useful. Call a
+        function like the following as early as possible during startup:
+      </p>
+      <pre><code>void BacktraceOnSegv() {
+            struct sigaction action = {};
+            action.sa_handler = DumpBacktrace;
+            if (sigaction(SIGSEGV, &amp;action, NULL) &lt; 0) {
+              perror("sigaction(SEGV)");
+            }
+          }
+          </code></pre>
+      <p>
+        Then the problem is only as hard as dumping a backtrace. It turns out
+        there isn't a straightforward way of doing this. glibc has a
+        <code>backtrace()</code> family of functions but they don't tell you
+        much: for example, you can get symbols but only those in your binary and
+        no line numbers. Google's C++ utilities include
+        <a
+          href="http://code.google.com/p/google-glog/source/browse/trunk/src/symbolize.cc"
+          >code for mapping addresses to symbols</a
+        >
+        that includes a ELF reader(!).
+      </p>
+      <p>
+        Really, doing the full job, like getting symbols from any loaded shared
+        objects, requires a lot of trawling through files and DWARF and
+        <code>/usr/lib/debug</code> and gdb does it best. So why not just use
+        gdb? Define <code>DumpBacktrace</code> as follows:
+      </p>
+      <pre><code>void DumpBacktrace(int) {
+            pid_t dying_pid = getpid();
+            pid_t child_pid = fork();
+            if (child_pid &lt; 0) {
+              perror("fork() while collecting backtrace:");
+            } else if (child_pid == 0) {
+              char buf[1024];
+              sprintf(buf, "gdb -p %d -batch -ex bt 2&gt;/dev/null | "
+                      "sed '0,/&lt;signal handler/d'", dying_pid);
+              const char* argv[] = {"sh", "-c", buf, NULL};
+              execve("/bin/sh", (char**)argv, NULL);
+              _exit(1);
+            } else {
+              waitpid(child_pid, NULL, 0);
+            }
+            _exit(1);
+          }
+          </code></pre>
+      <p>
+        And with that, here's an example of a program that passes a NULL to
+        <code>getchar()</code>; note how the dumped backtrace includes line
+        numbers as well as code inside glibc:
+      </p>
+      <pre><code>$ ./parse_run
+          #3  _IO_getc (fp=0x0) at getc.c:40
+          #4  0x0000000000401bbb in Tokenizer::Read (this=0x7fff90656dd8, token=0x7fff90656d90) at build/scan.cc:40
+          #5  0x0000000000402913 in Parser::Parse (this=0x7fff90656dd0, tokenizer=0x7fff90656dd8) at src/parse.cc:51
+          #6  0x0000000000404db5 in main (argc=1, argv=0x7fff90656ed8) at src/parse_run.cc:39
+          </code></pre>
+      <p>
+        Is doing all this work in a SEGV handler legal? From a glance online it
+        does appear to be ok to fork from there, and most of the work is done in
+        the separate <code>exec</code>'d process. But clearly if you're in a
+        SEGV handler it's possible you don't have any stack, which means the
+        above may not work at all in practice. It at least seems to work for
+        these toy programs.
+      </p>
+    </main>
+  </body>
+</html>

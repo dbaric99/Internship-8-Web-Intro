@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">SPDY setup</a></h2>
+        <div>August 10, 2013</div>
+      </div>
+
+      <p>
+        HTML's original developer model — a single host, containing pages
+        comprised of multiple files — has gradually matured into a more complex
+        world of best practices involving multiple hostnames, CSS spriting, and
+        JavaScript concatenation. Many of these kinds of tricks exist to make
+        browsers work around TCP; Will wrote
+        <a
+          href="https://insouciant.org/tech/network-congestion-and-web-browsing/"
+          >a lengthy history of the problem</a
+        >
+        that's worth a read.
+      </p>
+      <p>
+        SPDY, Google's successor to HTTP that is likely to be a close relative
+        of HTTP 2.0, preserves the original semantics of HTTP but changes the
+        transport layer to make "simple" pages fast again. I've read stories by
+        engineers on Google's apps that find they can remove hacks, simplifying
+        code, and also gain performance. But SPDY is also criticized for being
+        more complex to set up, particularly due to depending on SSL.
+      </p>
+      <p>
+        So I was curious to try setting up SPDY for a web app I've been working
+        on to see how hard it was. I have run Apache web servers in the past but
+        otherwise I've never touched any of these newer toys, so if you're in a
+        similar position you may find this helpful. Otherwise, this post is
+        pretty basic server setup notes and is likely not very interesting; I
+        also don't have any useful performance numbers.
+      </p>
+      <p>
+        To start with, you need a web host. I went with
+        <a href="https://www.digitalocean.com/?refcode=608d8005434a"
+          >Digital Ocean</a
+        >
+        (referral link, but my recommendation is genuine); I found a coupon
+        online that gave me the first month or two free. I at first experimented
+        with different "droplet" (VM) options but eventually concluded that it's
+        simplest to set everything up if you match the most common configuration
+        (the most recent Ubuntu release). I was also surprised to see that their
+        default install includes some junk like X11; I "configured" the machine
+        with some apt commands:
+      </p>
+      <pre><code>$ apt-get remove dbus libx11-6
+        $ apt-get autoremove
+        $ apt-get update
+        $ apt-get upgrade
+        $ reboot
+        </code></pre>
+      <p>
+        Next, you need a web server that speaks SPDY. I went with nginx because
+        it supports both reverse proxying and SPDY, with the thinking that nginx
+        can efficiently handle those concerns while my web app can run behind it
+        and be more ignorant of HTTP tricks. To install nginx your best bet
+        seems to be to add a file to <code>/etc/apt/sources.list.d/</code>
+        with the apt source from the nginx website then pull it down with
+        <code>apt</code> again. (This is an example of why it's convenient to
+        just use Ubuntu; the binary is already built.) I'd like to write a
+        follow-up to this post on using docker instead but I thought I'd keep it
+        simple for now.
+      </p>
+      <p>
+        Next, you need an SSL certificate. You can get one for free from
+        <a href="https://www.startssl.com">StartSSL</a>. The site is clunky but
+        it's not so hard to follow their instructions and save the files they
+        tell you to. You'll end up with public and private keys for your new
+        host (which you'll have needed to set up DNS for as well).
+      </p>
+      <p>
+        As I recall, as it's sent to you, the private cert is encrypted with a
+        password; you'll need to decrypt this so nginx can use it, which can be
+        done via some inscrutable openssl command line or via the StartSSL
+        website.
+      </p>
+      <p>
+        Your public cert is installable as-is and it'll work on your desktop
+        browser, but I found that for my Android device to accept the cert I
+        needed to include the "intermediate" certificate StartSSL had me save.
+        You can do this by literally concatenating the two files (your public
+        cert and the intermediate cert — the order matters) together into a the
+        single file that you then provide to nginx.
+      </p>
+      <p>
+        Next you need to configure nginx. I started by removing its default
+        setup from <code>/etc/nginx/conf.d/</code>. (Rather than editing files
+        directly here or above, I edited everything on a machine at home and
+        used rsync to sync changes up to the Digital Ocean host so that I could
+        reproduce the config on a new machine if necessary.)
+      </p>
+      <p>
+        In the nginx configuration: first, make any plain-HTTP connection
+        redirect to the SSL connection (edit your host name here).
+      </p>
+      <pre><code>server {
+            listen 80;
+        
+            return 301 https://my.host.name$request_uri;
+        }
+        </code></pre>
+      <p>
+        Next, set up a server block for your actual HTTPS service; note the
+        "spdy" in the listen line. I freely admit I don't know a lot about SSL
+        but instead borrowed these values from the default nginx SSL config. (I
+        also ran these settings by my local SSL expert and he said it looked
+        good.) The cert files here are the ones gathered in the above steps.
+      </p>
+      <pre><code>server {
+            listen 443 ssl spdy;
+        
+            ssl on;
+            ssl_certificate /etc/nginx/cert.pem;
+            ssl_certificate_key /etc/nginx/cert.key;
+        
+            ssl_protocols SSLv2 SSLv3 TLSv1;
+            ssl_ciphers HIGH:!aNULL:!MD5;
+            ssl_prefer_server_ciphers on;
+        </code></pre>
+      <p>
+        Then, within this block, I set up the reverse proxy onto my actual web
+        app, which is blissfully unaware of SSL or SPDY and instead just serves
+        pages in response to requests like a web server from the 90s. (Note that
+        it only listens on localhost so that it's not exposed to the internet
+        otherwise. You can also tweak <code>ufw</code> rules if you want
+        firewalling just to be doubly sure.)
+      </p>
+      <pre><code>    location / {
+                proxy_pass http://localhost:8080;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_buffering off;
+                proxy_http_version 1.1;
+            }
+        </code></pre>
+      <p>
+        I turned proxy buffering off because I'm not relying on nginx for
+        performance but rather just for the SPDY bits. And the nginx docs say
+        that you need to change the default http version to 1.1 if you want to
+        use keepalive connections. (I haven't verified this works yet, and what
+        is exactly appropriate here likely depends on your backend web app
+        anyway, so I'll ignore that for now.)
+      </p>
+      <p>
+        Finally, I needed to run the app itself. It's easy enough to launch it
+        manually, but just to show all the pieces I instead put it under
+        upstart, Ubuntu's daemon manager. Setting that up fully is surely a post
+        in itself, but in brief I created a user/group for the app process and
+        created a configuration file in <code>/etc/init/myapp.conf</code>:
+      </p>
+      <pre><code>description "myapp"
+        setuid myapp
+        setgid myapp
+        chdir /var/myapp
+        exec ./myapp --flags --go --here
+        </code></pre>
+      <p>
+        With that in place, a <code>service myapp start</code> brought up my
+        application (and caused its stderr logs to show up in
+        <code>/var/log/upstart</code>, complete with automatic log rotation),
+        and then a <code>service nginx reload</code> was enough to get my server
+        serving pages.
+      </p>
+      <p>
+        To verify SPDY is in effect, I found two ways. One is to visit
+        <code>about:net-internals</code> in Chrome after opening the site; it
+        has a SPDY connection viewer in the upper-left drop-down menu. The other
+        way is that there's currently a bug in Chrome where subresources loaded
+        over a SPDY connection show up as zero bytes in the network inspector,
+        though I heard that bug was fixed recently. You can toggle the "spdy"
+        out of the above nginx settings and reload it to see the site running in
+        non-spdy mode.
+      </p>
+      <p>
+        As a bonus, here are three nginx tweaks that aren't necessary to get
+        everything working but are worth pointing out.
+      </p>
+      <p>
+        SPDY knows to compress HTTP headers but it leaves the content
+        compression up to the HTTP level (consider: it's not useful to compress
+        at the transport layer if the data being served is already compressed).
+        nginx has <code>gzip</code> settings for that; see the docs.
+      </p>
+      <p>
+        The other boring tweak is to make nginx responsible for serving my app's
+        static content directly. This lets nginx serve the contents of static
+        files directly from the disk, rather than having my app load them and
+        stream them over the reverse proxy.
+      </p>
+      <pre><code>    location /static/ {
+                root /path/to/my/static/files;
+            }
+        </code></pre>
+      <p>
+        My app is also capable of serving the files itself, so I don't need
+        nginx in place to hack on the app, just to serve it live.
+      </p>
+      <p>
+        The last tweak is to put the entire site behind a password. This is just
+        to keep casual web crawlers etc. out; I only intend to use the site
+        myself and I don't want to bother with setting up a login box in the app
+        itself. Because everything is served over SSL you don't need to be too
+        clever. I crypted a password by running
+        <code>openssl passwd -crypt MYPASSWORD</code>, then created an
+        <code>htaccess</code> file with the contents
+        <code>username:crypted_password</code>, then referenced that file from
+        nginx via <code>auth_basic</code> and <code>auth_basic_user_file</code>.
+      </p>
+      <p>
+        After all of that work, does SPDY even matter? I haven't run detailed
+        benchmarks, and there's too much variance between requests to see a
+        difference between SSL off and on from my desktop. I'm most interested
+        to see its effect on my phone when on bad internet, as those conditions
+        are where SPDY's impact is likely to be the strongest. But in any case,
+        I figure I would always rather have my data travel over HTTPS, and with
+        the above configuration the difference between using SPDY and not is a
+        single word in the configuration file, so why not?
+      </p>
+    </main>
+  </body>
+</html>

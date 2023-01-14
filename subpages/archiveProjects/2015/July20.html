@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">Recovering without a reflog</a></h2>
+        <div>July 20, 2015</div>
+      </div>
+
+      <p>
+        I've been tinkering on a project for a few weeks and I decided it was
+        time to publish it somewhere else, just to have the work in two
+        locations in case something bad happened. Of course in doing that I
+        caused something very bad to happen.
+      </p>
+      <p>
+        In the early stages of a project I often have useless git history so I
+        first wanted to reimport the entire project as a single new commit. I
+        ran these commands:
+      </p>
+      <pre><code># Move the old git history aside.
+        mv .git oldgit
+        # Start up a new git history.
+        git init; git add .
+        # See what I'm about to check in.
+        git status
+        </code></pre>
+      <p>
+        But with that I had unintentionally added all the files in the
+        <code>oldgit</code> tree, which isn't what I wanted. So without
+        thinking:
+      </p>
+      <pre><code>git reset --hard
+        </code></pre>
+      <p>
+        This restored my tree to its initial state — that of one without any
+        files, deleting everything including the <code>oldgit</code> directory!
+        Typically you don't need to worry much about resetting in git because of
+        the reflog, but there is no reflog here because I haven't made any
+        commits yet.
+      </p>
+      <p>
+        At first I thought I'd lost everything: there were no files, there was
+        no master branch, <code>.git/index</code> was empty. I'd even gone as
+        far as composing an email to the friends I'd demoed the project to
+        lamenting my mistake. But then I remembered that whenever something is
+        added to the git index there's an associated object created under
+        <code>.git/objects</code>, even if you never check it in. (These
+        leftovers are part of why <code>git gc</code> is necessary to find
+        things to delete.)
+      </p>
+      <p>
+        So here's how I recovered. The very first thing to do is to checkpoint
+        where you started at, in case something else goes wrong!
+      </p>
+      <pre><code>cd ..
+        cp -a myproject what-were-you-thinking
+        cd myproject
+        </code></pre>
+      <p>Then I extracted the contents of all the objects.</p>
+      <pre><code>ls .git/objects/??/* | sed -e 's|.git/objects/\(..\)/|\1|' |
+        while read obj; do
+            git cat-file -p $obj &gt; obj/$obj
+        done
+        </code></pre>
+      <p>
+        (After writing this post,
+        <a href="http://plasmasturm.org/">Aristotle</a> told me a better way to
+        do this:
+      </p>
+      <pre><code>git fsck --unreachable --no-reflogs --no-progress |
+        while read status objtype objname ; do
+            git cat-file $objtype $objname &gt; obj/$objname
+        done
+        </code></pre>
+      <p>
+        Note that my manual approach will miss packed objects, which wasn't an
+        issue in this particular case but could be in other scenarios.)
+      </p>
+      <p>
+        At first I thought I'd just be able to look through these to find the
+        git "commit" object for my old master branch in there, but recall that
+        all I had run on this git repository was a single
+        <code>git add</code> which just added all the files as blobs to the
+        index. All of the objects were blobs, no git trees or commits.
+      </p>
+      <p>
+        The majority of these objects were from a <code>git add</code> of the
+        files within the <code>oldgit</code> directory, so they were blobs of
+        files containing git objects, or twice encoded. I figured I'd need to
+        identify all the ones containing source code and manually replace them.
+      </p>
+      <p>
+        But thankfully, running <code>file obj/*</code> found one file that it
+        identified as <code>Git index, version 2, 20 entries</code>. That was
+        the <code>.git/index</code> from the old repository, before I ruined
+        everything. So it's easy to just paste that over over the new (empty)
+        one.
+      </p>
+      <pre><code>cp obj/4a92e84106caea0835d918affe4735009b43d147 .git/index
+        </code></pre>
+      <p>
+        With that, <code>git status</code> showed that it expected there to be
+        20 files, each in their original locations. So finally, for each file
+        mentioned in the index, I could just check it out again. (Recall that
+        "checkout" in git means "make the file on disk match the file in the
+        index".)
+      </p>
+      <pre><code>git ls-files | xargs git checkout
+        </code></pre>
+      <p>And my files were restored. And this time I will be more careful.</p>
+    </main>
+  </body>
+</html>

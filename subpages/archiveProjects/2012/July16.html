@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">Gyp, Ninja, and shared object TOCs</a></h2>
+        <div>July 16, 2012</div>
+      </div>
+
+      <p>
+        Chrome is built with <a href="https://code.google.com/p/gyp/">gyp</a>, a
+        meta-build system that requires you to express your project as a
+        dependency relationship between higher-level "targets", which are
+        typically libraries or executables but can also be steps that e.g.
+        generate headers. (Ryan described gyp as "<a
+          href="http://twitter.com/ryah/status/209549646417248256"
+          >a module system for C</a
+        >".)
+      </p>
+      <p>
+        It was relatively easy to build
+        <a href="http://martine.github.com/ninja/">Ninja</a> underneath such a
+        declarative system, and its high level nature allowed some interesting
+        hacks for better build parallelization.
+      </p>
+      <p>
+        As warm-up, consider how static libraries work. In gyp, you might write
+        that an executable "chrome" depends on a library like "ui" which itself
+        makes use of other libraries like "base", each of which is composed of
+        multiple source files. (In a real project like Chrome there are hundreds
+        of such libraries, like "gfx" or "printing" or "spdy.) You could set the
+        dependencies up such that each target is built in sequence, but as an
+        optimization observe that static libraries don't involve a real linking
+        step: it's still correct to build all the source files in parallel.
+      </p>
+      <p>
+        Gyp knows this as well, and will rewrite the dependency graph such that
+        all static libraries transitively depended upon by an executable are
+        instead siblings beneath the executable. (It's more complicated than
+        simply flattening the inter-target dependency graph, as building some
+        libraries such as WebKit requires running helper tools that themselves
+        generate code, and during the build you can also build executables which
+        themselves generate more code.)
+      </p>
+      <p>
+        Here's one cool hack. You can, by flipping a flag, instead build this
+        tree of libraries as shared objects. The result isn't something you'd
+        ship to users, but it speeds up linking time during development
+        considerably as you're passing smaller subsets of the files to the
+        linker at a time.
+      </p>
+      <p>
+        This leads to a cooler optimization. When you change one source file
+        deep within the tree, naturally you need to rebuild its object file,
+        then the library, and then rebuild any binary that depends on the
+        library. The last step is necessary to expose all errors at compile
+        time: for example, if you deleted API exposed by a library that was
+        needed by some other code. But that phrasing reveals the optimization,
+        which is that downstream code really only relies on the API
+        <em>signature</em> exposed by libraries — if the implementation of some
+        code changes there's no need to involve the linker; the whole point of
+        shared objects is that the code is dynamically linked.
+      </p>
+      <p>
+        So instead, when building a shared object we write out both the shared
+        object and "table of contents" file (generated with readelf etc.) that
+        lists all the functions exposed by the resulting library. Then make
+        dependent binaries only rebuild when the table of contents changes.
+      </p>
+      <p>
+        This final change improved incremental build times of Chrome
+        dramatically after touching a file in the "base" library: when ported to
+        Mac (where Nico recorded some timings), it reduced builds from 10
+        seconds to 2. All via a bit of Python hacking and without requiring any
+        changes to the build files themselves. It's especially impressive given
+        the size of the build: up to around 11k steps and (when linked normally)
+        a 74mb stripped executable.
+      </p>
+      <p>
+        (Relatedly, check out the
+        <a
+          href="https://groups.google.com/forum/#!topic/ninja-build/VepvbaKE-V4/discussion"
+          >multi-daemon gnarliness that Scott cooked up</a
+        >
+        to make Windows builds fast.)
+      </p>
+      <p>
+        (Edit: I neglected to include names in the above! I didn't write any of
+        this TOC-related code; Ami Fischman, Nico Weber, and Scott Graham made
+        the relevant bits work on Linux, Mac, and Windows respectively.)
+      </p>
+    </main>
+  </body>
+</html>

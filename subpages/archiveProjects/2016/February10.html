@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">Revisiting TypeScript</a></h2>
+        <span>February 10, 2016</span>
+      </div>
+
+      <p>
+        After three years of surveys, I'm working on something new at work:
+        investigating using the TypeScript language for future Google apps.
+        Whether that will go anywhere is still unclear to me, but in the
+        meantime I've learned a new appreciation for TypeScript and I thought
+        I'd share what I've learned with you.
+      </p>
+      <p>
+        Most TypeScript tutorials open by diving into the type system, as that
+        is the new shiny thing. But for the purposes of deciding whether you
+        should use TypeScript for your next project the typing part is almost
+        irrelevant, and can just be summarized as "it adds a static type system
+        to JavaScript that is designed to work with existing libraries". If you
+        like static types then you probably know more or less what that implies.
+      </p>
+      <p>
+        Instead here's all the stuff I wished I had known about
+        <em>other</em> than the type system.
+      </p>
+      <p>
+        <strong>Services daemon and editor integration.</strong> The TypeScript
+        compiler is designed as a daemon that can answer questions about your
+        code (e.g. "what is the type of the variable <code>foo</code>?"). This
+        design means that your editor can call into the daemon to get all the
+        fancy IDE-like features — such as code-aware variable renaming or
+        clicking on a function to jump to its definition.
+      </p>
+      <p>
+        In fact this interface is already implemented by many editors, including
+        the IDEs but also Sublime Text, Vim, and Emacs. I personally use Emacs
+        and get red squiggly lines in my editor under code with errors in it.
+      </p>
+      <p>
+        <strong>Project layout.</strong> For this services daemon architecture
+        to work, your editor must be able to invoke TypeScript in the same way
+        (with the same options and input paths) as you would at build time. To
+        do this they standardized on a shared config file that specifies these
+        settings: when invoked, the tooling looks for your project root by
+        crawling directories upwards until it finds a
+        <code>tsconfig.json</code>, which contains all the settings.
+      </p>
+      <p>
+        This means that (1) when creating a new project, you need one of these
+        files in the root directory (it's created by running
+        <code>tsc --init</code>, much like how you'd run
+        <code>git init</code> in a new project); and (2) to build, you always
+        invoke the compiler with <em>no arguments</em>, as they are all
+        specified by the <code>tsconfig.json</code>.
+      </p>
+      <p>
+        In my work I've found this model serves as a brake to keep build configs
+        from getting too crazy, because if you're doing something in your build
+        system that can't be expressed in <code>tsconfg.json</code> then you
+        lose your fun editor features.
+      </p>
+      <p>
+        <strong>Incremental compilation.</strong> In previous attempts with
+        TypeScript I was frustrated by the compilation speed. To be clear, the
+        compiler is decently fast — a second or two for a small project, perhaps
+        comparable to whatever today's ES6 transpiler is once you layer in the
+        build systems and plugins and whatever goop you use to execute it — but
+        compilation was slow enough that it broke the flow of reload debugging
+        (as you might experience in a plain JS project). It turns out that
+        TypeScript is actually designed to work faster than that, but you must
+        let the compiler process hang around between compilations via the above
+        daemon architecture.
+      </p>
+      <p>
+        In practice this means you run <code>tsc --watch</code> when writing
+        code and it incrementally recompiles whenever you save. In an internal
+        project I found the compiler was fast enough that you could actually
+        recompile on every keystroke because it took under 20 milliseconds to
+        recompile a hot small file. (Experimenting with
+        <code>tsc --watch</code> produced compilation times more like a second
+        on my laptop. From a peek at the code I saw that it doesn't compile
+        immediately on save but instead waits a bit first to debounce multiple
+        saves.)
+      </p>
+      <p>
+        It's also worth noting that if you're using one of the above-mentioned
+        editor integrations (which you should), then your editor is marking
+        errors while you write code and you will only build when you intend to
+        run the code.
+      </p>
+      <p>
+        <strong>Module systems.</strong> TypeScript accepts ES6 JavaScript as
+        input and can produce ES5 as output. ES6 has a syntax for importing
+        modules (which is another way of saying "multiple-file projects"), which
+        TypeScript cares about because it must traverse files to check types.
+        But in terms of generated code it just transpiles imports into
+        equivalent imports in another module system that you configure; for
+        example, one option for output is the
+        <code>var foo = require('foo');</code> used by nodejs and some others.
+      </p>
+      <p>
+        If you want to actually build a single JS file from multiple inputs you
+        must use some sort of bundler or module loader external to the
+        TypeScript compiler. You might notice that the compiler has some flags
+        that let you specify a single output file; to use that output in a
+        browser unfortunately still requires the involvement of a module loader
+        library. (Of course, if you're targeting nodejs then you can just
+        produce its import syntax and everything just works.)
+      </p>
+      <p>
+        <strong>Implicit any.</strong> One way to use TypeScript is to add it
+        incrementally to a project by just renaming <code>*.js</code> to
+        <code>*.ts</code>. By default, places where you don't provide a type
+        annotation (like in function arguments) are then understood to have type
+        <code>any</code>, which effectively means types are unchecked. In this
+        model the thinking is that TypeScript will locally analyze functions
+        (where types are inferred), then you can add annotations as you see fit
+        to discover more bugs.
+      </p>
+      <p>
+        The other way to use TypeScript is to have the compiler tell you when
+        it's guessing. The compilation flag <code>noImplicitAny</code> instead
+        makes it a compiler error to leave out the types when they are needed.
+        This flag can be flipped in the <code>tsconfig.json</code>.
+      </p>
+      <p>
+        <strong>Conclusion.</strong> In all, I've been pretty impressed by
+        TypeScript. It feels right to me in the engineery sense, where they have
+        made good tradeoffs in the pursuit of making a useful tool. I'm hopeful
+        for its future.
+      </p>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">Quoting</a></h2>
+        <div>October 13, 2011</div>
+      </div>
+
+      <p>
+        In a former life I was briefly involved in the Atom syndication format.
+        In the syndication world people often fretted about whether content
+        needed to be "double escaped" — for example, whether an ampersand needed
+        to be "encoded" as <code>&amp;amp;</code> or <code>&amp;amp;amp;</code>.
+      </p>
+      <p>
+        Using those terms is thinking about the problem the wrong way. Quoting
+        is needed when you embed one language in another (or even a language
+        within itself). Well-defined languages have explicit rules — e.g. to
+        embed plain text in HTML, <code>&amp;</code> must be encoded as
+        <code>&amp;amp;</code>, and the same rule applies when embedding HTML
+        into XML — and so to judge "how much" escaping is needed you must just
+        follow those rules.
+      </p>
+      <p>
+        The confusion with RSS was not about whether the languages were
+        well-defined, but rather because it wasn't clear which language you were
+        using: whether your feed contains plain text or HTML. (Atom attempted to
+        address this with a more careful spec, which means that eight years
+        later, blog software must now support
+        <a href="">multiple incompatible formats</a>, I still sometimes see
+        literal <code>&amp;#39;</code>s in Google Reader, and have successfully
+        avoided ever participating in another specification process again.)
+      </p>
+      <p>
+        Language-layering confusion is rampant in the programming world, perhaps
+        because the rules for embedding are so fuzzy in spoken languages. Here
+        are a collection of instances of ways it can go wrong.
+      </p>
+      <p>
+        <em>Ruby</em>. In Ruby's
+        <a href="http://www.ruby-doc.org/core-1.9.2/String.html#method-i-gsub"
+          >string substitution function</a
+        >
+        (example: <code>"foobar".gsub("bar", "baz")</code>), the first argument
+        may be a regex. Did you know that <em>second</em> argument, the
+        replacement, is not literal text?
+        <a href="http://evan-tech.livejournal.com/209849.html"
+          >It leads to some surprising behavior</a
+        >. The fact that the function usually behaves as if the second argument
+        is literal text means that it's easy to write a bug here (consider
+        taking untrusted user input and passing it through as the second
+        argument to <code>gsub</code>), a pattern we'll see frequently below.
+      </p>
+      <p>
+        <em>UTF-8</em>. Embedding ASCII into UTF-8 is trivial — no change. This
+        makes it very easy to write code where you mix up which of the two
+        you're dealing with. See e.g. how Evite
+        <a href="http://evan-tech.livejournal.com/251031.html"
+          >transformed a single UTF-8 character into 16 backslashes</a
+        >
+        — probably went through multple layers of systems, each of which thought
+        it needed to escape the backslashes for the next.
+      </p>
+      <p>
+        I think Python is especially hard to get right in the presence of
+        Unicode strings, though I've read rumors that 3k helps. The Go language
+        defines its <code>string</code> type as UTF-8 and provides a separate
+        type for collections of bytes, but even at this early stage you see them
+        getting it wrong (e.g. the
+        <a href="http://golang.org/pkg/net/textproto/">textproto package</a>
+        provides <code>string</code>s but doesn't discuss encoding anywhere).
+      </p>
+      <p>
+        This area of problems is strangely one of the motivations of using
+        UTF-16 for Unicode text in Chrome: it's much harder to accidentally
+        stuff random data into a <a href="">UTF-16 string class</a>.
+      </p>
+      <p>
+        <em>Text-based games</em>.
+        <a href="http://jens.mooseyard.com/">Jens</a> once told a story about a
+        MUD where a programming error in parsing the text of a user making an
+        utterance would actually allow the text the user was "speaking" to
+        escape into the programming logic of the game itself. It was a
+        unintentional but true form of magic: you could defeat the dragon by
+        simply speaking the magic words (!) — which were likely metacharacters.
+        (I'd love to hear more details on this story, if anyone has them; my
+        memory has surely corrupted it.)
+      </p>
+      <p>
+        <em>Command lines</em>. On Unix systems, A command line is an array of
+        strings: a program name and its arguments. There is no single defined
+        thing that you could call a "command line string". You can represent a
+        command line array of strings as a single string but in doing so you are
+        again crossing a language level: you must define the syntax of how your
+        array is flattened.
+      </p>
+      <p>
+        On Unix systems, that language is almost always the language of the
+        shell, which has a mini-language of metacharacters described in e.g. the
+        "QUOTING" section of the bash man page.
+      </p>
+      <p>
+        So when we talk about command line strings on Unix systems, we typically
+        mean "command lines as encoded in the language of the shell". (This
+        isn't necessarily always the case! <code>.desktop</code> files, as used
+        to create icons on your desktop for Gnome/KDE/etc. use a
+        <a
+          href="http://standards.freedesktop.org/desktop-entry-spec/latest/ar01s06.html"
+          >different syntax</a
+        >
+        for command lines.)
+      </p>
+      <p>
+        If there is one lesson I'd like you learn from this post, it is that
+        there is no such thing as "a command line string" but rather "a command
+        line string as interpreted by bash". I wouldn't be surprised if there
+        were dark corners in the syntax here where a given command string would
+        be interpreted differently by different systems.
+      </p>
+      <p>
+        On Windows, command lines are a bit more confusing (and a little
+        terrifying to me): commands are executed with a string command line, and
+        it's up to each program to parse that string into arguments — it's up to
+        each program decide on the language used to represent the array. In
+        practice the C runtime does the the parsing before delivering an
+        <code>argv</code> to <code>main()</code>. You can
+        <a href="http://msdn.microsoft.com/en-us/library/17w5ykft(v=vs.85).aspx"
+          >read the MSDN docs</a
+        >
+        to discover that language — the rules are surprisingly tricky!
+      </p>
+      <p>
+        In Chrome, for reasons unclear to me (perhaps the above parsing rules
+        have changed across MSVC versions?) we actually discard the
+        <code>argv</code> passed to <code>WinMain()</code> and instead call out
+        to Windows APIs to get the original command line string to parse it.
+        When generating command lines we do
+        <a
+          href="http://codesearch.google.com/codesearch#OAMlx_jo-ck/src/base/command_line.cc&amp;exact_package=chromium&amp;q=QuoteForCommandLineToArgvW&amp;l=97"
+          >our half of the complex dance</a
+        >.
+      </p>
+      <p>
+        <em>Ninja</em>. Command lines and quoting have recently been of special
+        interest to me because of my
+        <a href="https://github.com/martine/ninja">Ninja build system</a>, which
+        (due to not doing much else) deals a lot with command lines. As part of
+        Ninja's minimalist philosophy, it treats the command lines you provide
+        as opaque strings, with no tokenization of parameters. This means that,
+        as described above, on Unix we hand those strings through to a shell.
+        (On Windows it's a bit more up in the air; I still need to read through
+        my backlog of bug mail to better describe what behavior is desirable or
+        best.)
+      </p>
+      <p>
+        With my lessons learned from all of the above, I tried to keep the Ninja
+        syntax as simple as possible. Here's an attempt at summarizing the
+        rules: Newlines are significant, <code>$</code> is always a
+        metacharacter; <code>$</code> followed by text is interpreted as a
+        variable reference, <code>$</code> followed by <code>$</code> evaluates
+        to just <code>$</code>.
+      </p>
+      <p>
+        Initially Ninja had used backslashes for line continuations, but doing
+        so takes backslashes out of the source language, which makes it
+        impossible to express Windows paths. After much delibaration I hit upon
+        the simple solution of making <code>$</code> followed by a newline into
+        a line continuation, which means backslashes are no longer magic. (The
+        syntax is all generated by code anyway so adjusting my builds to adopt
+        this was
+        <a
+          href="https://github.com/martine/ninja/commit/55fd4232d35de1f163310333d216d81a35cc0ef1#misc/ninja.py"
+          >a one-line change in a a Python script</a
+        >.)
+      </p>
+      <p>
+        <em>Make</em>. Ninja parses Makefiles as generated by gcc. I attempted
+        to discover what the quoting rules are for Makefiles, but could only
+        find scattered references in the documentation.
+        <a
+          href="https://github.com/martine/ninja/blob/e54d2b6c8bbb78b238160c7f31ae8515c15183d9/src/parsers.cc#L169"
+          >I summarized them in a comment</a
+        >; I was especially amused by how nearly impossible it is to express a
+        line that ends in a backslash.
+      </p>
+      <p>
+        <em>The web</em>. Half the security problems you see (SQL injection,
+        XSS) on the internet can be interpreted as a language-mixing problem. I
+        won't even go into it, but instead link to
+        <a
+          href="http://blog.moertel.com/articles/2006/10/18/a-type-based-solution-to-the-strings-problem"
+          >one of the many fine blog posts on how type systems can help</a
+        >.
+      </p>
+      <p>
+        <em>mbox files</em>.
+        <a href="http://en.wikipedia.org/wiki/Mbox">The mbox format</a>
+        represented a collection of email messages concatenating them together,
+        each with a line starting with "<code>From</code>". But wait, what if
+        the messages themselves contain such a line? And here the approaches
+        diverged; some attempted to escape such a line by inserting a character,
+        like "<code>&gt;From</code>", neglecting the fact that this now made it
+        impossible to represent a line with that literal text in the new format.
+        The result:
+        <a
+          href="http://homepage.ntlworld.com./jonathan.deboynepollard/FGA/mail-mbox-formats.html"
+          >"mbox" is a family of several mutually incompatible mailbox
+          formats</a
+        >.
+      </p>
+      <p>
+        The popular "mailman" software suite used to manage mailing lists
+        includes a generated archive (see
+        <a href="https://lists.webkit.org/pipermail/webkit-dev/">webkit-dev</a>,
+        for example). In principle it provides downloadable archives, but
+        unfortunately in practice it gets the mbox rules wrong and produces a
+        file that is impossible to parse without making heuristic guesses as to
+        the boundaries of messages.
+      </p>
+      <p>
+        <em>Conclusion</em>. Is there a lesson here? I'm not sure. All software
+        is full of bugs, here are some more.
+      </p>
+      <p>
+        I think this kind of nitpicky detail is just the sort of thing that type
+        systems are especially good at getting right, but they only help if
+        you're careful to use a new type at each language boundary: "ok, this
+        string is the content of the mail message, and now we transform that
+        into the mbox language..."
+      </p>
+      <p>
+        Maybe the mental model I use, of always associating a given string with
+        a given language will help you keep things straight, like the implicit
+        numeric base we use with numbers: "123" implicitly means "123 in base
+        10". The next time you have a user's name and want to print it,
+        hopefully you'll think "I need to convert that from base unicode into
+        base bytestring suitable for stdout."
+      </p>
+      <p>
+        With that framework in mind, spot the security bug: QuickTime, when it
+        wanted to open a URL referenced in the movie file, opened it by running
+        the equivalent of <code>system("browser.exe " + url)</code>. (For extra
+        credit, why is this a problem even if you get all the escaping right and
+        the browser really received the intended string as a command line
+        argument?)
+      </p>
+    </main>
+  </body>
+</html>

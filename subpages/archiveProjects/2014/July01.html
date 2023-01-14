@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">The Anti-Dashboard Manifesto</a></h2>
+        <div>July 01, 2014</div>
+      </div>
+
+      <p>
+        Here are some life hacks you might have heard before: I don't wear a
+        watch. The physical manifestation of being owned by time — literally a
+        collar with the owner's name on it — makes me uncomfortable, and it's
+        not hard to check a phone or a clock. I don't use software to notify me
+        of emails, tweets, or blog posts. Any time such a notification might
+        show I'm surely doing something else that I don't want to lose focus on.
+      </p>
+      <p>
+        Now take that reasoning further: It's not useful to reserve a portion of
+        my screen for displaying which applications are running, as the things
+        that are running are visible and the things that aren't visible can be
+        found when necessary. There's no need for an icon displaying wifi
+        status; if I'm connected it's uninteresting and if I'm not connected
+        I'll surely discover it if I attempt to use the internet.
+      </p>
+      <p>
+        I took this reasoning to its conclusion. I run my computers with the
+        screen blank except for the apps I run, and the apps I run I configure
+        to display a minimal amount of information. I think of this as being
+        <em>anti-dashboard</em>: against the cognitive clutter of extraneous
+        information. My computer is not a cockpit and I am at my best when I'm
+        only thinking about the single task at hand.
+      </p>
+      <p></p>
+      <center>
+        <img
+          width="480"
+          height="300"
+          src="../../../assets/images/screenshot.png"
+        /><br />
+        Screenshot from my laptop while writing this.
+      </center>
+      <p></p>
+      <p>
+        It's important to immediately distinguish this argument from the rathole
+        of endless productivity-optimization tweaking. I don't run a tiling
+        window manager or any fast app launchers. I have tried that in the past
+        and found the farther away from normal I got, the more time I lost to
+        configuring tools and fixing software that hasn't anticipated my
+        eccentricities.
+      </p>
+      <p>
+        Instead, I just turn off everything I don't use. I have one special
+        keystroke, to summon a terminal, and from that I can run "time" or
+        "google-chrome" or "acpi" as needed (that last one is for battery
+        status). If I minimize a window it disappears completely, but I can find
+        it again using alt-tab.
+      </p>
+      <p>
+        This anti-clutter position is a goal, not an absolute. All information
+        is always relevant to varying extents. Instead, I use it as a guide: for
+        any pixel, does having this information always in my face make things
+        better or worse?
+      </p>
+      <hr />
+      <p>
+        If I've sold you on the idea, here's how I implement it. My
+        <code>~/.xsession</code>:
+      </p>
+      <pre><code>gnome-settings-daemon &amp;
+        xsetroot -solid slategray
+        gnome-terminal &amp;
+        exec metacity
+        </code></pre>
+      <p>
+        Running <code>gnome-settings-daemon</code> lets me configure most stuff
+        on the system by clicking around in <code>gnome-control-center</code>.
+        For emacs, there are a bunch of settings I change, including
+        <code>tool-bar-mode</code>, <code>scroll-bar-mode</code>,
+        <code>mode-line-format</code>, <code>frame-title-format</code>; see my
+        (messy)
+        <a href="https://github.com/martine/config/tree/master/emacs.d"
+          >config</a
+        >
+        if you care.
+      </p>
+    </main>
+  </body>
+</html>

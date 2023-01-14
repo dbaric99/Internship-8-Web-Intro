@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2>
+          <a href="">Big companies, small companies</a>
+        </h2>
+        <div>September 25, 2013</div>
+      </div>
+
+      <p>
+        Large companies are notorious for succumbing to an excess of process;
+        the term "small company" brings to mind a nimble organization, capable
+        of making decisions quickly without red tape.
+      </p>
+      <p>
+        The other side of this agility is a lack of oversight. I once read
+        (maybe Spolsky?) decscribe a launch checklist (e.g. "step 4: get legal
+        to check trademarks") as a list of everything that's ever gone wrong at
+        a company. Each accident throughout a company's history is followed by a
+        postmortem that concludes with adding another item to the checklist of
+        roadblocks ("next time, also verify the relevant twitter account is
+        available"). With each year the process grows.
+      </p>
+      <p>
+        I've been thinking about this recently due to reading
+        <a
+          href="http://www.somebits.com/weblog/tech/bad/google-wallet-spam.html"
+          >Nelson's post about getting spammed by Google Wallet</a
+        >. (I feel it's maybe worth highlighting my disclaimer: though I work at
+        Google, I am a mere cog; my facts may well be wrong because I only know
+        what I read online.) Nelson posted that he got an email from Google full
+        of ads, without a link to opt out, and with a footer that claimed the
+        message was a "mandatory service announcement".
+      </p>
+      <p>
+        I was surprised to read this in part because for the product I work on
+        we recently wanted to email our customers. (Distinct from Wallet,
+        "customers" here refers to people who've actually paid us money for a
+        service we provide.) To send an email from Google, there is of course a
+        process; as far as I understand it this involves integrating with a
+        Google-wide service that manages tracking whether a given user had opted
+        in to emails, provides them opt outs, etc. "Process" is often a bad word
+        but here it seems reasonable enough. (I wasn't involved with this
+        integration, I just heard about it. Remember: cog.)
+      </p>
+      <p>
+        And though I don't know the facts of what happened with this Wallet
+        mail, it appears as if someone skipped the process. "It is better to ask
+        for forgiveness than permission", we cry... and then spam. What went
+        wrong? The missing element, I think, is that with a smaller group of
+        people it's easier to get in alignment about goals and values. At some
+        point, someone somewhere decided that sending this mail this way was ok
+        when you and I can say it's not. (Nelson, who started at Google in 2001,
+        didn't like it either.)
+      </p>
+      <p>
+        So maybe another way of looking at process is that it's a necessary
+        evil, used to defend an institution against the wrong values. (This
+        isn't to defend the idea but rather recognize it as inevitable.) Another
+        way of looking at it is that this kind of process becomes necessary when
+        you can no longer trust one another to do the right thing, which is
+        pretty depressing and more or less the reason I
+        <a href="">quit working on Chrome</a>.
+      </p>
+      <p>
+        PS: For all I know, in this particular case maybe someone just
+        accidentally misclicked the wrong checkbox when sending the email, and
+        the only lesson we'll learn is to add yet another step to the process to
+        double-check the checkbox.
+      </p>
+    </main>
+  </body>
+</html>

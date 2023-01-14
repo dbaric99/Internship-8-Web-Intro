@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">React, JSX, and CoffeeScript</a></h2>
+        <div>February 11, 2014</div>
+      </div>
+
+      <p>
+        <a href="http://facebook.github.io/react/">React</a> is neat. It's a
+        reimagining of how your DOM relates to your app state that dramatically
+        simplifies code without being an enormous framework*. It also breaks a
+        rule that I've never cared for, where your templates are supposed to be
+        separate from your code.
+      </p>
+      <p>
+        In React's world, each component (re-)renders its entire virtual DOM on
+        any state change; React then manages updating the on-page DOM based on
+        what changed. This means the rendering code only needs to model the
+        static state of a component, rather than poking around in the DOM to
+        transition between states.
+      </p>
+      <p>
+        To facilitate this rendering, React includes an optional library/tool
+        called JSX that lets you inline HTML into your render function. The
+        translation is relatively simple. This code:
+      </p>
+      <pre><code>render: function() {
+          return &lt;p&gt;&lt;a href="foo"&gt;bar&lt;/a&gt;&lt;/p&gt;;
+        }
+        </code></pre>
+      <p>
+        becomes, post-translation, the not-keyboard-friendly but not hard to
+        understand:
+      </p>
+      <pre><code>render: function() {
+          return React.DOM.p(null, React.DOM.a({href:"foo"}, 'bar'));
+        }
+        </code></pre>
+      <p>
+        In words, the tag becomes a function call, the attributes become an
+        object passed as the first argument, and the contents of the tag are
+        further parameters to the function.
+      </p>
+      <p>
+        The nice thing about interleaving code and DOM is that you can use all
+        the normal JavaScript functionality in your template. Here's another
+        example from the React docs with an embedded <code>Array.map</code>:
+      </p>
+      <pre><code>return (
+          &lt;ol&gt;
+            {this.results.map(function(result) {
+              return &lt;li key={result.id}&gt;{result.text}&lt;/li&gt;;
+            })}
+          &lt;/ol&gt;
+        );
+        </code></pre>
+      <h3>CoffeeScript instead of JSX</h3>
+      <p>
+        If you're using CoffeeScript, your source code isn't JavaScript to begin
+        with. But turns out that CoffeeScript's flexible syntax makes it
+        relatively painless to use the underlying API directly.
+      </p>
+      <p>
+        Start with shortening the DOM alias and writing more or less the same
+        code as above. Also note that you don't need to explicitly
+        <code>return</code>
+        as the last statement in a function is implictly returned, and that the
+        function literal syntax for argumentless function is just a bare
+        <code>-&gt;</code>:
+      </p>
+      <pre><code>R = React.DOM
+        # ...
+        
+        render: -&gt;
+          R.p(null, R.a({href:'foo'}, 'bar'))
+        </code></pre>
+      <p>
+        But you can do better. First, CoffeeScript knows to insert the curlies
+        on an object literal because of the embedded colon.
+      </p>
+      <pre><code>  R.p(null, R.a(href:'foo', 'bar'))
+        </code></pre>
+      <p>
+        And then you can remove the parens by splitting across lines. When
+        providing args to a function, a comma+newline+indent continues the
+        argument list. Much like Python, the visual layout follows the semantic
+        nesting.
+      </p>
+      <pre><code>  R.p null,
+            R.a href:'foo', 'bar'
+        </code></pre>
+      <p>
+        In fact, beyond the first argument, the trailing commas are optional
+        when you have newlines. Here's the same thing again with two links
+        inside the <code>&lt;p&gt;</code>:
+      </p>
+      <pre><code>  R.p null,
+            R.a href:'foo', 'bar'  # note omitted comma here
+            R.a href:'foo2', rel:'nofollow', 'second link'
+        </code></pre>
+      <p>
+        CoffeeScript also makes every statement into an expression, which is a
+        familiar feeling coming from functional programming. It means you can
+        use statement-like keywords like <code>if</code> and <code>for</code> on
+        the right hand side of an equals sign, or even within a block of code
+        like the above.
+      </p>
+      <p>
+        Here's a translation of the (7-line) <code>&lt;ol&gt;</code> example
+        from above.
+      </p>
+      <pre><code>R.ol null,
+          for result in @results
+            R.li key:result.id, result.text
+        </code></pre>
+      <p>
+        There is one final feature of CoffeScript that I find myself using,
+        which is an alternative syntax for object literals. For example, suppose
+        in the above example the "key" attribute needs to be computed from some
+        more complicated expression:
+      </p>
+      <pre><code>R.ol null,
+          for result, index in @results
+            resultKey = doSomeLookup(result, index)
+            R.li key:resultKey, result.text
+        </code></pre>
+      <p>
+        The simplification is that, within a curly-braced object literal,
+        entries <em>without</em> a colon use the variable name as the key. The
+        above could be equivalently written:
+      </p>
+      <pre><code>R.ol null,
+          for result, index in @results
+            key = doSomeLookup(result, index)
+            R.li {key}, result.text
+        </code></pre>
+      <p>
+        This is particularly useful when the attributes you want to set have
+        meaningful names — <code>key</code> is pretty vague, but if you
+        construct an <code>href</code> and a <code>className</code> variable
+        it's pretty clear where they are going to be used. These can be mixed
+        with normal key-value pairs, too, like:
+      </p>
+      <pre><code>href = ...
+        className = ...
+        R.li {href, className, rel:'nofollow'}, ...
+        </code></pre>
+      <p>
+        Putting it all together, here's a larger example, part of an
+        implementation of an "inline edit" widget. To the user, this widget is
+        some text with a "change" button to its right, where clicking on
+        "change" swaps the line of text out for an edit field positioned in the
+        same place, allowing the user to make a change to the value directly.
+        (Like how it works in a spreadsheet.) The first branch of the
+        <code>if</code> is the widget's initial state; the
+        <code>@edit</code> function flips on the
+        <code>@state.editing</code> flag.
+      </p>
+      <pre><code>render: -&gt;
+          if not @state.editing
+            R.div null,
+              @props.text
+              ' '  # space between text and button
+              R.span className:'link-button mini-button', onClick:@edit, 'change'
+          else
+            R.div style:{position:'relative'},
+              R.input
+                style:{position:'absolute', top:-16, left:-7}
+                type:'text', ref:'text', defaultValue:@props.text
+                onKeyUp:@onKey, onBlur:@finishEdit
+        </code></pre>
+      <p>
+        To get a feel for these rules, you can just experiment and look at the
+        generated JavaScript. Or you can go to
+        <a href="http://coffeescript.org">coffeescript.org</a> and click the
+        "Try CoffeeScript" tab, where you can enter nonsense expressions there
+        just to experiment with the syntax.
+      </p>
+      <p>
+        * Though I do wish it was smaller. I wish I could cut all the support
+        for old IE bits and the event handling abstractions.
+      </p>
+    </main>
+  </body>
+</html>

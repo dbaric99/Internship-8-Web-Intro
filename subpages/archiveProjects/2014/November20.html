@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2>
+          <a href="">Embedding the current revision in your product's binary</a>
+        </h2>
+        <div>November 20, 2014</div>
+      </div>
+
+      <p>
+        <em
+          >Today's post was written by my coworker and longtime collaborator
+          Nico Weber. Reading this made me suddenly remember fighting with
+          making these scripts work on multiple platforms across svn, git, and
+          git-svn.</em
+        >
+      </p>
+      <p>
+        It's sometimes useful if a program can say "this program was built at
+        rXXXX". For example, about:version in chrome used to tell you the SVN
+        revision your build of chrome is from, <code>clang --version</code> will
+        list which SVN revision chromium's clang is built off of (Xcode's clang
+        doesn't do this), and so on. If you know that a certain bug is fixed at
+        rYYYY, you can use this feature to quickly discover if your binary has
+        this fix already.
+      </p>
+      <p>
+        It's an obvious feature, but it's actually a bit tricky to implement if
+        you don't want it to slow down your build. Clang's Make-based build has
+        a
+        <a
+          href="http://llvm.org/viewvc/llvm-project/cfe/trunk/lib/Basic/Makefile?view=markup"
+          >Makefile</a
+        >
+        that shells out to a script to get the current revision. The script
+        calls <code>svnversion</code> or <code>git svn info</code> or
+        <code>git log -1</code> depending on the checkout, then the Makefile
+        does the same again to get the revision of the llvm directory, then both
+        strings are concatenated and compared to the contents of a file
+        containing these two numbers from the last build, and if the files are
+        different it overwrites the file it just read. The "Version.o" file has
+        a dependency on this file, so Version.o file gets rebuilt if it changes.
+        This means that every time you run <code>make</code>, a bunch of scripts
+        get run, hitting the disk a few times. Clang's Make-based build uses
+        recursive Make so incremental builds aren't all that fast anyway, so
+        this is good enough. LLVM also has a CMake-based build though, which can
+        write ninja files, and ninja doesn't allow shelling out from its
+        manifest files.
+      </p>
+      <p>
+        Before discussing that case, let's review how the same feature was done
+        in Chromium. Chromium used to use a similar system as LLVM's Make-based
+        build: The <code>lastchange</code> target (which also gets the current
+        revision from the VCS and writes it to a file) used to depend on
+        <code>build/util/lastchange.always</code>, a file that doesn't exist and
+        never got created. So the <code>lastchange</code> target used to be
+        built every time. Again, we used to use make which wasn't all that fast
+        anyhow.
+      </p>
+      <p>
+        (I think this used to be only the story on Linux and Windows. On Mac, we
+        used to use a "postbuild" and store the revision in the app's bundle
+        <code>Info.plist</code> every time after the app bundle got built. So
+        this wasn't a problem on OS X. Since xcode had postbuilds, I taught the
+        gyp ninja generator about postbuilds on OS X, but we feel that
+        postbuilds aren't a great feature in general, so we didn't make them
+        work on other systems.)
+      </p>
+      <p>
+        When Chrome switched to ninja on Linux, running the
+        <code>lastchange</code> script on every build was annoying. Originally,
+        ninja would always rebuild all downstream dependencies, so lastchange
+        would write the revision to a file on every build, and since chrome
+        transitively depends on that revision file somehow, chrome would relink
+        on every build, even if nothing happened. To prevent this from
+        happening, Evan Martin <em>[ed: that's me!]</em> added this to the ninja
+        generator:
+      </p>
+      <pre><code># Chrome-specific HACK.  Chrome runs this lastchange rule on
+        # every build, but we don't want to rebuild when it runs.
+        if 'lastchange' not in input: ...
+        </code></pre>
+      <p>
+        This made builds fast, but also meant that your embedded revision would
+        be out of date when using ninja. Peter Collingbourne taught ninja about
+        "restat rules" (build edges that can cancel themselves if the output
+        they produce is identical to the output they produced last time) and Ami
+        Fischman changed gyp's ninja generator to make all custom rules restat
+        rules — so when the contents of the revision file doesn't change, the
+        build edge cancelled itself and Chrome no longer relinked on each build,
+        even without the above hack. But the script to check the revision would
+        still run on each build.
+      </p>
+      <p>
+        In a seminal CL, Scott Graham realized that people always have to run
+        <code>gclient sync</code>, and moved generation of the revision file
+        from the build system into a
+        <a href="https://chromiumcodereview.appspot.com/9169105">gclient hook</a
+        >. (Back then, we had only few hooks — mostly one to run gyp — and
+        people often didn't run hooks, so this was less obvious back then than
+        it is now.) This was the first time that
+        <code>ninja chrome</code> wouldn't run one step on every build, since
+        the revision file would be written when you run
+        <code>gclient sync</code> — the only time your repo's revision actually
+        changed. (Richard Coles cleaned this up more
+        <a href="https://chromiumcodereview.appspot.com/10388213">a bit later</a
+        >).
+      </p>
+      <p>
+        This works fairly well for chromium, but LLVM doesn't have a script you
+        have to run to sync — if you want the latest code, you just
+        <code>svn up</code> or <code>git pull</code>, so Chromium's approach
+        didn't quite work. They used to do the same thing every time CMake runs
+        — equivalent to running gyp, but people usually don't run cmake
+        manually: it reruns itself when your CMakeLists.txt change. Not every
+        change touches CMakeLists, so your revision file was usually only mostly
+        up-to-date.
+      </p>
+      <p>
+        A previous attempt to fix this was to move the revision file generation
+        into the build system and make it depend on a non-existent file, like
+        chromium's 'lastchange' rule of yore, but that meant that
+        <code>ninja</code> always ran that edge and the build never got clean
+        (just like in Chromium), so that quickly got reverted.
+      </p>
+      <p>
+        Yesterday, Apple's Jordan Rose landed
+        <a href="http://llvm.org/viewvc/llvm-project?rev=222393&amp;view=rev"
+          >a change to LLVM</a
+        >
+        that solves this problem in a pretty clever way: He moved the generation
+        of the revision file back into the build system, but instead of making
+        it depend on a non-existent file so that it runs on every build, it
+        depends on <code>.git/logs/HEAD</code> or <code>.svn/entries</code>,
+        files that the VCSs update every time you sync. With this, the revision
+        update script runs exactly if your revision has actually changed.
+      </p>
+      <p>
+        (Relying on implementation details of your VCS comes with its own
+        drawbacks, of course: If a VCS changes its internal files, this will
+        break. And this already happened: SVN 1.7 uses
+        <code>.svn/wc.db</code> instead of 1.6's <code>.svn/entries</code> , so
+        Jordan already had to land
+        <a
+          href="http://llvm.org/viewvc/llvm-project?view=revision&amp;revision=222407﻿"
+          >one patch</a
+        >
+        to make this approach actually work in practice. Still, this is probably
+        the solution with the best tradeoffs.)
+      </p>
+    </main>
+  </body>
+</html>

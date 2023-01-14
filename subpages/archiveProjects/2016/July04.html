@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">Adventures in terminal emulators</a></h2>
+        <span>July 04, 2016</span>
+      </div>
+
+      <p>
+        One of my common tinkering projects has been writing terminal emulators,
+        programs that do the work of e.g. xterm. There are a lot of interesting
+        ideas in this space (I have my own to contribute!) but discussing them
+        is a post for another day. Instead I thought I'd write a bit about the
+        basics.
+      </p>
+      <p>
+        It turns out that writing a basic featureless terminal emulator is a
+        nice way to try out a programming language because it touches on a few
+        different things:
+      </p>
+      <ul>
+        <li>
+          The terminal emulation itself is a relatively simple self-contained
+          parsing problem, which lets you exercise the nuts and bots of the
+          language.
+        </li>
+        <li>
+          To render the output you need some sort of keyboard input and
+          graphical output, which lets you exercise the language's GUI libraries
+          and how/whether it interacts with an event loop.
+        </li>
+        <li>
+          It also touches some grungy Unix bits (ptys, ioctls), which give you a
+          taste of the language's support for extension; most languages
+          reasonably don't build pty handling into their standard library.
+        </li>
+      </ul>
+      <p>
+        Perhaps because of this I've written experiments in C++, Haskell, Go,
+        Rust, and likely some other languages that I've forgotten about. When I
+        tell people about my terminal emulators most think it's a dumb idea and
+        some say it might be hard, but the basics are really pretty simple.
+      </p>
+      <p>
+        Your terminal emulator program runs another command (say,
+        <code>bash</code>) as a subprocess. When that subcommand produces output
+        you mostly just add it to the screen at the current position, perhaps
+        representing the screen as a 2d grid of character cells, and the current
+        cursor position as (row,column) pair.
+      </p>
+      <p>
+        Some of the subcommand's output also includes control codes, which are
+        sequences of characters that change something; for example, if you see
+        the output <code>"\e[34m"</code> (the <code>\e</code> here represents
+        ESC, which is a byte value of 27) that means subsequent text should be
+        blue. Other escape codes move the cursor, and so on. You can find charts
+        of all the escape codes online.
+      </p>
+      <p>
+        Processing these escapes is the parsing problem I mentioned above. This
+        is straightforward until you encounter the problem of partial escapes.
+        The subprocess is producing text — perhaps coming in slowly, if your
+        terminal is ssh'd over some slow connection, or perhaps quite fast, if
+        your terminal is running <code>find /</code> locally — and your code
+        must interpret them. That is, what do you do if you get the first few
+        bytes of an escape code but not the rest? (UTF-8 input, with multiple
+        bytes representing a single codepoint, is an identical problem.)
+      </p>
+      <p>
+        One option is to make the parser asynchronous: model the whole thing as
+        a state machine that can be resumed at any point, so when you run out of
+        input, bail, and then when you later get more input, pick up where you
+        left off. This is pretty tedious and error-prone and the sort of thing
+        that it feels like a language ought to help you with.
+      </p>
+      <p>
+        Another option is to synchronously wait for more data. However, in the
+        context of a GUI you can't synchronously wait from the UI handling
+        thread, so this gives you a chance to try out your test language's
+        threads or coroutines (or goroutines). The background thread waits for
+        the subprocess output and processes it as it arrives.
+      </p>
+      <p>
+        But now you have a synchronization issue: the UI wants to draw the
+        terminal content so it needs access to the layout and position, while
+        the terminal emulation parser wants to update that state at the same
+        time. If you just put a lock around it — read one command, then update
+        state while holding the lock — you end up spending most of your time in
+        locking (the vast majority of "commands" are just single bytes that are
+        displayed as-is). Similar approaches (e.g. sending parsed terminal
+        commands as they complete over a Go channel) also create tons of
+        overhead (memory allocations and channel processing per input byte).
+      </p>
+      <blockquote>
+        <p>
+          Aside: why even care about overhead? I dunno, this is just tinkering.
+          The test case to run is <code>time find /</code> in an xterm; you'll
+          see that it's limited by the terminal and X server CPU. In my good
+          implementations I instead have the terminal emulator process the
+          output as fast as possible, but the render of that output is locked to
+          the compositor resync (so drawing happens only once every 16ms ~
+          60fps).
+        </p>
+      </blockquote>
+      <p>
+        My newest idea is a kind of hybrid: read to fill a buffer, lock once,
+        parse as much from that as possible, and finally back up and save the
+        tail to use after the next read if you hit the end of the buffer while
+        in the middle of parsing an escape code.
+      </p>
+      <p>
+        This approach is potentially O(n^2) if an incomplete input comes a byte
+        at a time, because each time around the outer loop we start over from
+        the beginning; but in practice escape codes are ~10 bytes at most and
+        the very worst (the one that sets the window title) is more like ~100
+        bytes.
+      </p>
+      <p>
+        The other problem with this approach is that it mostly defeats the
+        paralellism benefit of the concurrent design. The terminal processing
+        code holds the lock the entire time it's doing its processing, then
+        releases it when it goes back to sleep to wait for more input, while the
+        paint code must wait for the lock when it wants to paint. There are two
+        threads but they mostly take turns. Perhaps you have a better idea?
+      </p>
+      <p>
+        If you wanted to write your own terminal emulator there are some other
+        details, like ptys (see <code>man pty</code>) and the window size (<code
+          >man tty_ioctl</code
+        >) but they're easy enough to muddle through. Hopefully in future posts
+        I will be able to show you something cool.
+      </p>
+    </main>
+  </body>
+</html>

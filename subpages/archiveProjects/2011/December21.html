@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">Linux on a G4 Mac Mini</a></h2>
+        <div>December 21, 2011</div>
+      </div>
+
+      <p>
+        I wanted to put Linux on this old Mac Mini so I can use it a file
+        server. Some install instructions suggested burning a CD, but I don't
+        have a CD burner handy. Others suggested booting off a USB stick, but
+        the newer Debian/Ubuntu installer docs removed that section, and it's
+        not clear how to partition the USB device. What to do?
+      </p>
+      <p>
+        It turns out it's relatively easy to completely install via the network
+        due to Open Firmware's tftp support. You'll need a pretty standard
+        networking setup (DHCP) along with a Linux box and a network wire for
+        the Mac.
+      </p>
+      <p>
+        Start by searching for [<a href="http://www.debian.org/distrib/netinst"
+          >debian netboot</a
+        >], not to be confused with <em>netinst</em>: the former is how to net
+        boot the installer, the latter is minimal CD images that download the
+        remainder of the install from the internet. What you want is the netboot
+        version of the netinst installer, and you'll find it in the "network
+        boot" section of the above page.
+      </p>
+      <p>
+        For a G4 Mac Mini, follow the link to the powerpc images, then navigate
+        to <code>powerpc/netboot</code> and download the following files into a
+        directory:
+      </p>
+      <ul>
+        <li><code>yaboot.conf</code>, configuration for yaboot</li>
+        <li><code>yaboot</code>, the boot loader</li>
+        <li><code>boot.msg</code>, the bootup message</li>
+        <li><code>vmlinux</code>, the kernel</li>
+        <li><code>initrd.gz</code>, the rest</li>
+      </ul>
+      <p>
+        (How to remember this file list? You need <code>yaboot.conf</code> and
+        all files it references; it's a short text file.)
+      </p>
+      <p>Next, install tftp on your hosting machine. Run it like:</p>
+      <pre><code>sudo in.tftpd -L -s path/to/files
+        </code></pre>
+      <p>
+        It runs as root due to the port it uses, <code>-L</code> puts it in
+        foreground mode, and <code>-s</code> makes paths relative to the
+        directory you give it.
+      </p>
+      <p>To verify that tftp works, try a command like:</p>
+      <pre><code>tftp localhost -c get yaboot.conf
+        </code></pre>
+      <p>
+        Fix your setup if that command results in an error (for example, I
+        learned the hard way that the Mac doesn't like pulling files from a
+        subdirectory).
+      </p>
+      <p>
+        Then boot the Mac into Open Firmware by holding Windows-Alt-O-F (that's
+        Command-Option-O-F on a Mac keyboard) as it boots. At the prompt, tell
+        it to fetch yaboot:
+      </p>
+      <pre><code>boot enet:192.168.1.114,yaboot
+        </code></pre>
+      <p>(adjust the IP as necessary).</p>
+      <p>From that point, just follow the menus. Simple.</p>
+      <p>
+        (But actually it was not so simple to figure out the above. If you run
+        into yaboot errors like
+        <code>can't read elf e_ident/e_type/e_machine info</code> or the
+        installer being unable to detect your disk, I found both of those were
+        solved by using the latest version of Debian, and not Debian stable or
+        the most recent PPC Ubuntu.)
+      </p>
+      <p>
+        PS: wow was OS X slow on this thing. I can't believe it was considered
+        tolerable at the time of release.
+      </p>
+    </main>
+  </body>
+</html>

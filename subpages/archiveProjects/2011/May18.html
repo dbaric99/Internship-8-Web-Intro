@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">Some things I've learned about memory</a></h2>
+        <div>May 18, 2011</div>
+      </div>
+
+      <p>
+        Start with a simple question: "how much memory does my app use?" It
+        turns out the answer is endlessly complex. Until recently I knew
+        relatively little about what follows in this post but I learned a lot
+        through patient explanations from colleagues; hopefully this post will
+        save someone else who was in my position some time.
+      </p>
+      <p>
+        Like much of computer science, memory works as layers of abstractions.
+        An application interfaces with <code>malloc()</code> or
+        <code>new</code>, those functions manage pages of virtual memory using
+        syscalls, and those pages are (sometimes) backed by real memory by the
+        operating system.
+      </p>
+      <p>
+        Within a process all you see is virtual memory, but outside of a process
+        all that matters to your system is physical memory. Because these are
+        different views on the same thing, you'll often see overlap between the
+        terms and tools used to evaluate them. For example, the first memory
+        column of <code>top</code> shows the total virtual space used for a
+        process.
+      </p>
+      <p>
+        But what you normally care about is physical memory: space on the chip,
+        the thing that when you run out of stuff starts swapping. That column of
+        <code>top</code> is nearly useless for the sorts of questions you run
+        <code>top</code> to answer ("where are my resources going?").
+      </p>
+      <p>
+        To keep these ideas distinct let's talk about two different resources.
+        Your operating system manages <em>memory</em>: the space in the chips. A
+        process has <em>address space</em>: addresses that a pointer can read
+        from and store data at. Those terms can refer to the same thing, but
+        frequently they don't. Virtual address space can be backed by memory but
+        also by something else,
+      </p>
+      <hr />
+      <p>
+        From a process's perspective, it runs alone in a sea of available
+        address space. Start with <code>cat /proc/self/maps</code>, a dump of a
+        map of the virtual memory of the <code>cat</code> process (fields elided
+        below for clarity; more docs are in <code>man 5 proc</code>):
+      </p>
+      <pre><code>00400000-0040d000 r-xp    /bin/cat
+        0060d000-0060e000 r--p    /bin/cat
+        0060e000-0060f000 rw-p    /bin/cat
+        0201a000-0203b000 rw-p    [heap]
+        7f9b80fe9000-7f9b81163000 r-xp    /lib/libc-2.11.1.so
+        </code></pre>
+      <p>
+        The leftmost pairs of numbers indicate spans of address space, and the
+        fields to the right are attributes of that span. You'll see that the
+        <code>cat</code> binary appears at a low address and libraries it uses
+        are mapped in at high addresses. The rightmost column shows that some of
+        these ranges of the address space are backed by files: when accessing
+        the data at 0x400000, the kernel can just just get that data from
+        <code>/bin/cat</code> and not use real memory (the stuff on the chips,
+        remember) except as a cache.
+      </p>
+      <p>
+        The permission flags on the ranges reflect the different parts of the
+        binary: <code>r-x</code> is code, <code>r--</code> is read-only data,
+        <code>rw-</code> is read-write data. You can dig into this further by
+        looking at <code>objdump -h /bin/cat</code> and noting the "VMA"
+        addresses listed for various sections.
+      </p>
+      <blockquote>
+        <p>
+          An aside: sometimes you'll see spans marked <code>---</code>, which
+          means completely inaccessible. I asked one of the aforementioned
+          colleagues about it and he suggested it could be guard pages, but that
+          some regions were too large. Curious, he dug into the source and
+          reported back: "the [shared object] is getting loaded but it specifies
+          non-contiguous sections in memory. Since dl doesn't want to try and
+          get the kernel to allocate exactly (because the kernel can always
+          ignore the hint), it allocates a single, big block anywhere and
+          PROT_NONEs out the bits that it doesn't need."
+        </p>
+      </blockquote>
+      <p>
+        PS: If you spend a lot of time looking at these <code>maps</code> files,
+        you should try out the <code>pmap</code> utility:
+        <code>sudo apt-get install procps</code>.
+      </p>
+      <p>
+        The region marked <code>[heap]</code> is where this process happens to
+        be allocating pointers (in the <code>malloc()</code> sense) from, but it
+        could just as well be getting pages at other virtual addresses. On a
+        default kernel setup the kernel will <em>overcommit</em>: repeatedly
+        getting more pages (repeatedly calling <code>malloc</code>) just causes
+        you to map in more pages within your address space, and you can keep
+        requesting memory, more than the physical memory of your system, and
+        <code>malloc</code> will more or less keep returning pointers until you
+        run out of address space. From an process's perspective allocatable
+        address space is unrelated to available system resources.
+      </p>
+      <p>
+        The only time you really care about how much virtual memory you're using
+        is when a process is near its address limit. For example, the Chromium
+        32-bit buildbots have been failing recently because the linker couldn't
+        find 900mb of consecutive address space to <code>mmap</code> the output
+        binary. (In this case, the buildbots have plenty of physical memory; our
+        32-bit buildbots have the modern problem of more physical memory than
+        virtual address space, which means processes can "run out of memory"
+        when there is plenty left.)
+      </p>
+      <hr />
+      <p>
+        Your virtual addresses (that aren't backed by files) become backed by
+        physical memory when your process touches the addresses. Take a look at
+        <code>cat /proc/self/smaps</code>, the same information as
+        <code>maps</code> with some additional details:
+      </p>
+      <pre><code>02401000-02422000 rw-p 00000000 00:00 0         [heap]
+        Size:                132 kB
+        Rss:                  52 kB
+        Pss:                  52 kB
+        </code></pre>
+      <p>
+        <code>Size</code> is the size of the virtual region. <code>Rss</code>,
+        resident set size, is the subset of this that is backed by real memory.
+        (Let's ignore swap, yet another factor complicating these numbers.) So
+        this is saying that while the heap is 132kb of virtual address space,
+        it's only been backed by 52kb of real memory. And here our question
+        about application memory use could more or less be answered — sum the
+        RSS for all mappings — except for another twist: pages can be shared.
+      </p>
+      <p>
+        If ten processes are all running with the same 3mb
+        <code>libc</code> library, the kernel only needs to load that library in
+        to memory once and just map it into each process's address space. (That
+        is, after all, one of the primary purported benefits of shared
+        libraries.) Writable pages (for example, global variables within
+        <code>libc</code>) can be marked copy-on-write: as each process writes
+        to those virtual addresses, the kernel will implicitly re-back it with
+        its own memory private to the process. In fact, whenever a process forks
+        all of its private memory in the subprocess is marked copy-on-write as
+        well, a trick we make use of below.
+      </p>
+      <p>
+        Shared memory makes our application accounting question a tricky one.
+        Clearly it doesn't make sense to charge a process for its shared memory
+        in isolation — in the above example libc is using at most 3mb of memory,
+        not 30mb. A more useful metric, "proportional set size" (<code
+          >Pss</code
+        >
+        seen above in the <code>smaps</code> dump), divides the RSS by the
+        number of processes sharing that memory. Each process is charged an
+        equal fraction of the total amount used.
+      </p>
+      <p>
+        PSS is the closest we've come to a fair memory metric, but it has some
+        counterintuitive properties: for example, if you kill one process that
+        is sharing memory with others, its shared memory doesn't become
+        available to the system, so other processes that were sharing that
+        memory have their PSS go <em>up</em> a little. (That hypothetical
+        scenario points at perhaps another potential useful memory metric: "if I
+        kill this process, how much memory is freed up?")
+      </p>
+      <hr />
+      <p>
+        Chrome is built as a suite of cooperating processes. If you boot up your
+        browser and display one tab containing Flash, you'll see somewhere
+        around five processes communicating with one another. To keep memory
+        usage low it is critical these five processes share as much memory as
+        possible.
+      </p>
+      <p>Here are some ways processes can end up sharing pages:</p>
+      <ol>
+        <li>Explicitly, by using shared memory APIs;</li>
+        <li>Via the loader, by using the same binary or shared libraries;</li>
+        <li>By <code>mmap</code>ing the same file;</li>
+        <li>
+          By <code>fork</code>ing (all private pages are marked copy on write in
+          the child).
+        </li>
+      </ol>
+      <p>In Chrome's case, we make use of all of those.</p>
+      <ol>
+        <li>
+          (We use shared memory in our IPC system, but that is for performance,
+          not memory savings.)
+        </li>
+        <li>
+          All Chrome processes are from the same binary, so all code pages are
+          shared between them.
+        </li>
+        <li>
+          Chrome stores all of its resources (e.g. translatable messages, the
+          "no such picture" icon shown when an <code>&lt;img&gt;</code> tag
+          references a bad URL) in a single file which it <code>mmap</code>s.
+          This way, despite running many processes, only one copy of those
+          resources are ever occupying memory. (Cat
+          <code>/proc/&lt;pid&gt;/maps</code> for a Chrome process and look for
+          <code>.pak</code>. Note that you might need to be root to do this for
+          sandboxed Chrome processes.)
+        </li>
+        <li>
+          For reasons that are too complicated to describe here, shortly after
+          startup Chrome forks a "zygote" process, which waits for commands from
+          the main Chrome process and itself forks again when it's time to spawn
+          a new subprocess. Though the zygote exists for other reasons, in
+          theory one consequence of this design is that any startup-time
+          initialization that happens before the zygote forks will end up in
+          copy-on-write pages in subprocesses. As long as that memory (for
+          example, the parsed representation of the command line) isn't modified
+          later it will be shared.
+        </li>
+      </ol>
+      <hr />
+      <p>
+        In all of the above discussion I haven't even touched on what
+        <code>malloc()</code> does. In some sense for memory usage purposes it's
+        not important; its consequences can be seen in the above numbers. But
+        it's at least interesting to consider how it fits into the above
+        discussion.
+      </p>
+      <p>
+        Without making this already overlong post longer, know that
+        <code>malloc</code>
+        gets pages of virtual address space from the system and then manages
+        pieces within those regions. In fact, in Chrome you can visit
+        <code>about:tcmalloc</code> (and then reload the page once) to get a
+        dump of some of the sorts of information the tcmalloc authors thought
+        were of interest.
+      </p>
+      <p>
+        Memory allocators (like libc's malloc or tcmalloc) are complicated and
+        interesting but the important fact for this post is that they have some
+        bookkeeping overhead which itself costs memory. A memory profiler, a
+        critical tool for application memory analysis, will tell you how much
+        memory your application is requesting, but usually they don't include
+        allocator or how much of the memory your application requests ends up
+        being actually used (in the RSS sense).
+      </p>
+      <p>
+        Ultimately memory allocators are just managing the above primitives. A
+        profiler can help provide more insight into which application-level
+        logic is causing memory allocations, but it's not the right layer to
+        describe where memory is going. For the best picture I recommend
+        <code>smem</code>, a tool that was written by the same person who added
+        the hooks to the kernel to make PSS computation possible:
+        <code>sudo apt-get install smem</code> .
+      </p>
+      <p>
+        <em
+          >Special thanks to
+          <a href="http://gutschke.com/markus/">Markus</a> and
+          <a href="http://www.imperialviolet.org/">Adam</a> for patiently
+          explaining many things to me, though note that any mistakes I made
+          here are my own.</em
+        >
+      </p>
+    </main>
+  </body>
+</html>

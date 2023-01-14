@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">Why not add an option for that?</a></h2>
+        <span>July 08, 2018</span>
+      </div>
+
+      <p>
+        If you've ever developed software you've surely had users ask you to add
+        an option. "Rather than forcing everyone into behavior A," they'll
+        reason, "why not add an option so users can choose between behaviors A
+        and B?"
+      </p>
+      <p>
+        This post is an attempt at producing a canonical consolidated answer to
+        why the answer to this is often "no".
+      </p>
+      <p>
+        But first: it's worth pointing out that
+        <strong>sometimes the right answer really is to add an option</strong>.
+        The answer is not absolutely "no", it's rather "usually no, but maybe it
+        overcomes the objections in this post". With that in mind, let's look at
+        the costs of options.
+      </p>
+      <h3>Options are bad user experience</h3>
+      <ul>
+        <li>
+          <p>
+            A good tool solves its purpose so directly that it's not even
+            noticed. Great designs need fewer options because they just work as
+            is. The reason the user opened the the software is to achieve some
+            end, not poke around in the software's options. Maybe you can come
+            up with a better design that addresses the use cases of the option?
+          </p>
+        </li>
+        <li>
+          <p>
+            At the extreme, options may just be asking the user to make a
+            decision about something that the designer failed at. There's a
+            <a href="https://www.joelonsoftware.com/2000/04/12/choices/"
+              >great post about this by Joel Spolsky</a
+            >, which highlights an especially egregious Windows dialog that
+            asked the user to choose database parameters for the help system.
+            Making decisions like these can be hard, but often if they're hard
+            for the developer they're even harder for the user who has even less
+            context.
+          </p>
+        </li>
+        <li>
+          <p>
+            The "<a href="https://en.wikipedia.org/wiki/The_Paradox_of_Choice"
+              >paradox of choice</a
+            >" is the counterintuitive result that more options reduce
+            happiness, by introducing cognitive load for things that should be
+            straightforward. (Disclaimer: the repeatability of the experiments
+            implying this phenomenon are in dispute.)
+          </p>
+        </li>
+        <li>
+          <p>
+            The presentation of options (via a GUI or command-line docs) itself
+            is a UX problem — how do you organize them, how do users discover
+            them? — that becomes harder with more options. Adding a unimportant
+            option obscures the options UI for the truly necessary options. For
+            example, does the <code>--help</code> output fit on one screen or
+            not? In the limit software developers give up on organization and
+            add a search box (like about:config in Firefox or the equivalent
+            search box in Chrome).
+          </p>
+        </li>
+        <li>
+          <p>
+            Even when there's an option that already solves some user problem,
+            many users won't discover it, because they just aren't interested
+            enough in the software to look through all the options to judge
+            whether any are relevant for their task. For example, Firefox's
+            "Master Password" feature is only used by 0.0087% of its users, and
+            it's hard to say if that is because the feature is unpopular or if
+            it's because there are users who would want this feature but don't
+            know to look for it or what it is called.
+          </p>
+        </li>
+      </ul>
+      <p>
+        A great example of software with poor options UX is Git. Git is a tool
+        with a simple clear conceptual core that's been absolutely wrecked by
+        uncritical thinking around the design of the options. The
+        <a href="https://git-man-page-generator.lokaltog.net/"
+          >git man page generator</a
+        >
+        parodies this by generating ludicrous but plausible documentation for
+        Git. There are plenty of other examples, though.
+      </p>
+      <h3>Options are features, and features are costly</h3>
+      <p>
+        You can think of software development as the accumulation of features
+        over time. Spending time implementing the feature of my-new-option means
+        that you are not implementing the feature of more-important-other-thing.
+        The right way to look at the tradeoff is not "why not implement option
+        X?" but rather "why implement option X instead of [more important thing
+        I could be doing]?" Those other more important things could themselves
+        be features or options but they also can be unobservable core work like
+        making the software more efficient or crash less.
+      </p>
+      <p>
+        You might reasonably argue that an option is cheap — maybe just an extra
+        <code>if</code> statement, maybe someone even wrote the patch already —
+        but in practice there are more questions than that.
+      </p>
+      <ul>
+        <li>
+          <p>How does the option get toggled?</p>
+        </li>
+        <li>
+          <p>How is the presence of the option communicated to the user?</p>
+        </li>
+        <li>
+          <p>Does it need documentation?</p>
+        </li>
+        <li>
+          <p>
+            Does it need localization? (E.g. if it adds a user-visible menu item
+            or help output.)
+          </p>
+        </li>
+        <li>
+          <p>Does it need localized documentation?</p>
+        </li>
+      </ul>
+      <p>
+        Writing the patch that adds the option ends up being a small part of the
+        total work required, and the bulk of the work falls on whoever ends up
+        maintaining the result.
+      </p>
+      <h3>
+        Implementing a feature is a one-time cost, but keeping it working is an
+        ongoing cost
+      </h3>
+      <ul>
+        <li>
+          <p>How do we verify that future changes don't break the option?</p>
+        </li>
+        <li>
+          <p>
+            What happens if we change the program in such a way that the option
+            doesn't make sense anymore? For example, suppose the option adds an
+            entry to a menu and changes in the program mean that rest of the
+            menu is no longer needed — do we keep the menu just for the one
+            option?
+          </p>
+        </li>
+        <li>
+          <p>
+            What happens when you change the UI around options? If it's a
+            checkbox, where does the checkbox go when you move other checkboxes?
+            If it's a command-line flag, where does it go if your program splits
+            into subcommands?
+          </p>
+        </li>
+        <li>
+          <p>
+            If at some point we believe the option might no longer be necessary
+            and that no users actually even use it, how can we determine whether
+            it's safe to remove?
+          </p>
+        </li>
+      </ul>
+      <h3>Options can be costlier than features</h3>
+      <p>
+        In fact, as far as features go, optional behavior can be even worse for
+        maintenance than always-on behavior, because options produce features
+        that aren't consistently present.
+      </p>
+      <ul>
+        <li>
+          <p>
+            How does this option interact with other options? If we have N
+            toggleable options, do we need to test the software in all 2^N
+            possible configuration? For example, if one option is "hide button X
+            from the toolbar" and a later option is "hide button Y from the
+            toolbar", does the toolbar correctly handle having two adjacent
+            missing buttons?
+          </p>
+        </li>
+        <li>
+          <p>
+            Which other features does this interact with? Do we need to run
+            every test we have with both the option on and off, or is there a
+            subset of places where the option might affect things?
+          </p>
+        </li>
+        <li>
+          <p>
+            Every time we edit the surrounding code in the future, the option
+            adds more complexity in reasoning through the code.
+          </p>
+        </li>
+        <li>
+          <p>
+            If the option is dependent on some system-local property, how can we
+            ensure we don't break the option without access to such a system?
+          </p>
+        </li>
+        <li>
+          <p>
+            When a user reports a bug, which options are relevant to triggering
+            the bug, and can they know this?
+          </p>
+        </li>
+        <li>
+          <p>
+            If a bug is only encountered when an unpopular option is on, it may
+            go unreported and remain undiscovered.
+          </p>
+        </li>
+      </ul>
+      <h3>If options are so bad, why do users want them so much?</h3>
+      <p>
+        Hopefully the above convinces you that new options aren't to be
+        introduced lightly. So why do users so often ask for them? Here are a
+        few reasons.
+      </p>
+      <ol>
+        <li>
+          <p>
+            Users are concerned about their particular use case, and tunnel on
+            solving it without consideration for the whole system. "When I do X
+            it takes three clicks," they think, "so you should add an checkbox
+            like <code>[] make it two clicks</code>."
+          </p>
+          <p>
+            This even comes up sometimes when a program has a genuine bug, like
+            say it deletes the user's work in some circumstance, and the user
+            will request "add an option to make it not delete my work" rather
+            than the more obvious solution of not losing their work. (While
+            drafting this post, I coincidentally had a perfect example of this
+            come up —
+            <a
+              href="https://groups.google.com/d/topic/ninja-build/FJTIQiRBK20/discussion"
+              >this user</a
+            >
+            encountered a genuine bug and asked if there was a flag to suppress
+            the bug.) There's a
+            <a href="https://xkcd.com/1172/">great xkcd</a> taking this to the
+            logical extreme, where the user demands an option to make the
+            program waste CPU.
+          </p>
+        </li>
+        <li>
+          <p>
+            Users see no cost, only benefits. If you ask a user "should I add a
+            feature where ____?" they almost always will answer yes even before
+            the blank is filled in.
+          </p>
+        </li>
+      </ol>
+      <h3>Conclusion</h3>
+      <p>
+        If you're a user, even if you found this unconvincing, you can hopefully
+        at least use it as a way to more successfully advocate for adding
+        options to your favorite software. You can use this template: "Adding an
+        option for <em>A</em> is more important than fixing bug
+        <em>B</em> because <em>C</em>. It is impossible to design for this use
+        case because <em>D</em>, it won't have much maintenance cost because
+        <em>E</em>, and other users will know where to find it because
+        <em>F</em>."
+      </p>
+      <p>
+        If you're a software developer, you already know that your
+        responsibility is to balance all of the use cases simultaneously against
+        other factors like opportunity cost and maintenance cost. It is my hope
+        that at you can cite this essay as a way to avoid repeating the same
+        arguments.
+      </p>
+    </main>
+  </body>
+</html>

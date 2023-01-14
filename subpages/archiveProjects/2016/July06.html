@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">TypeScript nullable types</a></h2>
+        <span>July 06, 2016</span>
+      </div>
+
+      <p>
+        The development branch of TypeScript (which will be TypeScript 2.0)
+        added support for nullable types — letting you express, in the type
+        system, whether a type is possibly null or not. I think the
+        implementation is neat and unlike what I've seen in other languages so I
+        thought I'd write a post about it.
+      </p>
+      <p>
+        For background, recall TypeScript's design space: it is modelling the
+        way existing JavaScript code works. (This constraint really helps
+        prevent them from going off into architecture astronaut land for new
+        type system features!) If you look a browser JavaScript API such as
+        <a
+          href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify"
+          ><code>JSON.stringify</code></a
+        >
+        you'll see that, for example, if you pass a number as the third argument
+        ("<code>space</code>") it does one thing and if you pass a string it
+        does a different thing. Many APIs work in this way.
+      </p>
+      <p>
+        TypeScript models this behavior with <em>union</em> types, which at
+        first look like the sum types you see in ML/Haskell/Rust but are
+        actually quite different. Think of types like sets of allowed values:
+        the type "number" is the set {1, 2, 3, ...}, and a function that accepts
+        a <code>number</code> accepts any value in that set. Or a more complex
+        example: the structural type "<code>{foo: number}</code>" is the set of
+        all objects that have a <code>foo</code> property of type
+        <code>number</code> (including <code>{foo: 1}</code> or
+        <code>{foo: 3, bar: 4}</code>).
+      </p>
+      <p>
+        A union type then is just a union of sets: <code>string|number</code> is
+        a set that includes <code>1</code> and also <code>"hello"</code>. Using
+        that for the <code>space</code> parameter to
+        <code>JSON.stringify</code> correctly models you may pass it a number or
+        a string but nothing else.
+      </p>
+      <p>
+        What can you do if you have a value with a union type? Here's where it's
+        easy to get confused. If you have <code>x: string|number</code>, what
+        methods are available on <code>x</code>? The set of operations you can
+        do with a type are the things that <em>all</em> values in the type
+        implement, which ends up being the <em>intersection</em> of the
+        operations. Both <code>string</code> and <code>number</code> have a
+        <code>.toString()</code> method, so you can safely call
+        <code>.toString()</code> on <code>x</code> regardless of its value, but
+        there isn't much else. (To see for yourself, hit ctl-space after the
+        final period on
+        <a
+          href="https://www.typescriptlang.org/play/#src=let%20x%3A%20string%7Cnumber%3B%0D%0Ax."
+          >this example</a
+        >.)
+      </p>
+      <p>
+        In practice, usually what you do with a union type is a type test to see
+        which sort of value you actually have; presumably
+        <code>JSON.stringify</code> does something like
+      </p>
+      <pre><code>if (typeof space === 'string') {
+          ...string-specific behavior...
+        }
+        </code></pre>
+      <p>
+        (This check is morally similar to the pattern-match you might do in an
+        ML-derived language, but in those languages you match on the enum value,
+        not the type. One way to see this difference is to see that Haskell's
+        <code>Either</code> has <code>Left String | Right String</code>, while
+        in TypeScript the type <code>string|string</code> is equivalent to just
+        <code>string</code>.)
+      </p>
+      <p>
+        Finally, here's where nullability fits in. In previous TypeScripts, any
+        variable can also have the value <code>null</code>. (And there's also
+        <code>undefined</code>, which shows up in uninitialized variables and a
+        few other situations. Why is it that both <code>null</code> and
+        <code>undefined</code> exist? Because JavaScript.) From the "types are
+        sets" perspective, it's easy to see this means every type implicitly
+        includes <code>null</code> and <code>undefined</code> in its allowed set
+        of values.
+      </p>
+      <p>
+        So to add nullability checking to TypeScript, all they needed to do is
+        remove those implied members of the sets. With strict null checking on,
+        when you write <code>string</code> the type admits strings only. The
+        language then declares a new type named <code>null</code> that is the
+        set of just one value: <code>null</code>. To represent a possibly-null
+        value, it's the union type <code>string|null</code>.
+      </p>
+      <p>
+        Almost all remanining behavior then falls out of the existing union type
+        semantics. For example, what can you do with a <code>string|null</code>?
+        Well, there are no methods on <code>null</code>, so there's no methods
+        on the union either. You probably want to do a test like we did earlier
+        in the <code>JSON.stringify</code> example, but in this case, the test
+        is a null check — and the compiler is helping you find where a null
+        check is necessary!
+      </p>
+      <p>
+        In practice, the bulk of the nullability work in the TypeScript compiler
+        seems to have been on improving the flow-sensitive type analysis.
+        Consider code like:
+      </p>
+      <pre><code>let x: string|number = ...;
+        if (typeof x === 'string') {
+          // x has type 'string' here.
+        } else {
+          // by elimination, x must have type 'number' here.
+          x *= 4;  // legal on numbers.
+        }
+        </code></pre>
+      <p>
+        The compiler must do the "by elimination" reasoning, so that it doesn't
+        flag that <code>else</code> arm as an error. It already had logic for
+        this before they added <code>null</code> (for cases like this
+        <code>string|number</code> union type) but with nullability they found
+        more places to improve it.
+      </p>
+    </main>
+  </body>
+</html>

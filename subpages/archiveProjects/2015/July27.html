@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2>
+          <a href="">Arch Linux on a ASUS Zenbook UX305</a>
+        </h2>
+        <div>July 27, 2015</div>
+      </div>
+
+      <p>
+        I bought an ASUS Zenbook UX305. For $700 you get a laptop comparable to
+        a MacBook Air — even thinner, in fact. Pause for a moment and ponder
+        over how cheap that is: it's about the price of an iPhone!
+      </p>
+      <p>
+        The catch of course is that it comes with Windows and crapware — which
+        is fixable by installing Linux — and that the build quality is surely a
+        bit worse than Apple's (though so far it is surprisingly close!). Here
+        are some notes on it, mostly around setting up Linux. The short story is
+        that almost everything works great, most of it out of the box.
+      </p>
+      <h3>Hardware</h3>
+      <p>
+        First some brief notes on the hardware. Once you've decided to go with a
+        Zenbook you'll find it extremely difficult to understand the differences
+        betweeen all the various models. Even on the ASUS site there's mostly
+        marketing copy with specs, and then they have some sort of page that
+        lists tens of very-similar-looking laptops with an "add to compare"
+        checkbox that appears to do nothing.
+      </p>
+      <p>
+        But as best I can figure out, the UX303 is the older model while the
+        UX305 is this year's one. There are many variants, such as with touch
+        screens (which I don't want); there's the newer UX305LA (with a Core i5
+        processor) and the UX305FA (with a Core M processor). There may be hidpi
+        ("QHD") variants, which I considered buying until I realized it'd just
+        be more money to have less battery life. I ended up settling on the
+        UX305FA, which appears the be the one commonly reviewed now. Its screen
+        is about 160 DPI, which is roughly 1.7x "normal" DPI — high enough that
+        I have to squint to see the pixels.
+      </p>
+      <p>
+        There's one final variant of models — UX305FA-<em>A</em>SM1 vs
+        UX305FA-<em>U</em>SM1. The latter appears to be the "Windows Signature"
+        edition, which is where you pay more to not have as much crapware
+        installed. I totally understand the business models and deals that would
+        go into such a thing but it is still hilariously sad. Since I am
+        removing Windows anyway I went with the cheaper one.
+      </p>
+      <p>
+        I bought mine from Amazon; the first one I got had a slightly-busted
+        backspace key (you had to press it a bit harder to make it work) so I
+        contacted Amazon. Within minutes they were mailing me a new laptop and
+        sending someone to pick up the broken one, no questions asked. Amazon's
+        customer service in these areas is so great they really have earned my
+        business.
+      </p>
+      <h3>Windows</h3>
+      <p>
+        Clicking around in Windows 8 I mostly felt bad for Microsoft. They're
+        clearly trying hard to make something nice (though I found it super
+        confusing) but there's so much bad software on these things out of the
+        box. Right after installing I got alarming messages about some awful
+        antivirus wanting me to register. All the apps from the manufacturer are
+        upscaled in a really gross way (I assume at 1.7x, matching the display
+        DPI) where the fonts are all fuzzy. It's unclear how much of the bad
+        stuff is due to business deals and how much is actually necessary to
+        make the device work. For example scrolling in Internet Explorer seemed
+        occasionally janky which could either be bad IE code or it could be a
+        bad trackpad (i.e. non-Microsoft) driver, but ultimately it sucks either
+        way.
+      </p>
+      <p>
+        One last Windows 8 note. I was surprised to see it auto-opted me in to
+        "Do Not Track" — I thought MS had backed off from that? The way it works
+        is that during setup there was a step which was like "do you want to set
+        everything else up automatically?" with a list of innocuous things it
+        would do like set up hardware, and in the middle it had Do Not Track in
+        there. I also played with their Netflix app a bit and then wondered why
+        there was no YouTube app and then remembered there's also some history
+        there too. Tech company drama is so amusing and sad. (Re-disclaimer:
+        though I work for Google, it is as a random engineer so I have no real
+        insights into what's going on behind either of these issues.)
+      </p>
+      <h3>Windows Recovery</h3>
+      <p>
+        The first step in the Linux setup story is to grab a Windows recovery
+        image. At some point I might want to give this laptop away and it'd be
+        nice to not inflict Linux on the recipient. Unfortunately, the ASUS
+        recovery tool ("Backtracker") only wants to write the recovery image to
+        a USB stick. After letting it do that, I wondered — how to back that up
+        somewhere reasonable? I can copy the files but what about the magic that
+        makes it bootable? The obvious thing is to just image the whole thing,
+        but this USB drive is 32gb; it'd be nice to just back up the data from
+        it. (Edit: I later ended up using the plain Windows recovery image tool,
+        not the ASUS one. Hopefully that one won't include crapware.)
+      </p>
+      <p>
+        After a lot of fretting about UEFI booting and GPT partition tables (all
+        of this stuff is new since I last learned it all, and I don't really
+        understand how it worked in the MBR days either) I finally realized that
+        the USB image is a boring-old MBR one. (I have no idea how this works
+        given the laptop appears to be UEFI booting; I have so little of an idea
+        I don't even know if I'm using these terms right.) This means you can
+        back it up by:
+      </p>
+      <ol>
+        <li>
+          Grab the MBR: <code>dd if=/dev/sdX of=mbr size=512 count=1</code>
+        </li>
+        <li>Copy the files off of the vfat partition.</li>
+      </ol>
+      <p>To recreate the USB stick, then, you do the reverse process:</p>
+      <ol>
+        <li>
+          Write the MBR: <code>dd if=mbr of=/dev/sdX size=512 count=1</code>
+        </li>
+        <li>Recreate the file system: <code>mkfs.vfat /dev/sdX1</code></li>
+        <li>Copy the files back on to the vfat partition.</li>
+      </ol>
+      <p>
+        I verified this worked (at least up to the point of showing the ASUS
+        restore UI) once, by wiping the USB disk and doing the above steps. I'm
+        a little worried that the MBR includes the partition table which means a
+        differently-sized USB stick won't be usable, but I hope if that comes up
+        I could figure it out.
+      </p>
+      <h3>Booting from USB</h3>
+      <p>
+        In Windows, hold shift when you pick restart from the power off menu and
+        it takes you to some recovery-related screen, which lets you enable
+        getting into the BIOS settings, which lets you tweak the secure boot
+        flag. From there I found that holding Esc while the ASUS logo was up
+        would let me choose which device to boot from.
+      </p>
+      <h3>Linux install</h3>
+      <p>
+        I decided to go with Arch. If you told me two years ago you were putting
+        Arch on a laptop I'd have said you were crazy but now I think it is just
+        great. It's so nice to be able to just <code>pacman -S go</code> and
+        know I'm getting a current version of the Go compiler with the links to
+        source in the godoc browser working, not some old supposedly-stable
+        version.
+      </p>
+      <p>
+        As with my last two install experiences, just following the Arch
+        instructions was fine. (Note: follow the "beginner" instructions, not
+        the plain install instructions.)
+      </p>
+      <p>
+        New to me was GPT partitions and UEFI booting. Apparently you no longer
+        use <code>fdisk</code>, but instead <code>parted</code>. I just left the
+        existing EFI partiton in place and deleted the others to make a single
+        50gb partition for Linux. (So <code>/</code> is <code>/dev/sda2</code>,
+        after the EFI partition.)
+      </p>
+      <p>
+        Two other tweaks from their guide: I used a swapfile instead of a swap
+        partition, and I'll use the remaining space for an encrypted home
+        directory. Also, when running <code>genfstab</code> I left out the
+        <code>-U</code> flag as I find all that UUID business annoying, but this
+        detail is probably one you don't need to worry about.
+      </p>
+      <h3>Minor Arch notes</h3>
+      <p>
+        I wrote an earlier post about
+        <a href="">Arch commands for Debian users</a> but I have two tips to
+        emphasize:
+      </p>
+      <ol>
+        <li>
+          <p>
+            The Arch wiki is amazing and extensive, so for pretty much any issue
+            you can't go wrong by adding "arch" to your search query.
+          </p>
+        </li>
+        <li>
+          <p>
+            When you run a random command like <code>netstat</code> and find you
+            don't have it installed, I learned you can run
+            <code>pkgfile netstat</code> to print out the package name that
+            provides it. You'll of course need to install
+            <code>pkgfile</code> itself:
+          </p>
+          <pre><code>pacman -S pkgfile
+        </code></pre>
+        </li>
+      </ol>
+      <h3>X setup</h3>
+      <p>You need the Intel X drivers and the Synaptics touchpad support:</p>
+      <pre><code>pacman -S xf86-video-intel xf86-input-synaptics
+        </code></pre>
+      <p>
+        As far as I understand it there are two versions of the Intel graphics
+        drivers. UXA is the old but working one (described as "mature" in the
+        <code>man 4 intel</code> manpage) and SNA is new default. From looking
+        at
+        <a href="http://cgit.freedesktop.org/xorg/driver/xf86-video-intel/log/"
+          >their git repo</a
+        >
+        it appears that SNA is still under active development.
+      </p>
+      <p>
+        With SNA (the default setting), when I quit X my text consoles would be
+        garbled. I tried switching to UXA and that fixes that problem but it is
+        otherwise worse: it seems much slower and flickery, and alt-tabbing out
+        of Chrome is laggy. I "fixed" this by just installing GDM (the graphical
+        login manager), so that I don't use text consoles. I think this also
+        enabled screen locking.
+      </p>
+      <h3>Desktop environment</h3>
+      <p>
+        In the first edition of this post I had a lot more details about
+        configuring the trackpad, adjusting the audio settings (ALSA defaulted
+        to the HDMI output rather than the speakers) and so on. But really I
+        concluded there are just a lot of things you need to tweak to get a
+        modern computer working (e.g. selecting wifi networks, adjusting the
+        volume when you hit the volume keys) and I don't really want to fight it
+        all.
+      </p>
+      <p>
+        So I gave up and installed GNOME 3, which I find pretty tasteful as far
+        as desktop environments go.
+      </p>
+      <pre><code>pacman -S gnome gnome-tweak-tool
+        </code></pre>
+      <p>Then in <code>~/.xinitrc</code>:</p>
+      <pre><code>exec gnome-session
+        </code></pre>
+      <p>
+        You'll want to run <code>gnome-tweak-tool</code> to make caps lock into
+        a control key and to change the desktop scale factor due to the high
+        screen DPI. I found about 1.25x made things comfortable. Don't go too
+        crazy with the tweaks, GNOME isn't really made to be that configurable.
+      </p>
+      <h3>Fonts</h3>
+      <p>
+        Install the
+        <a href="https://wiki.archlinux.org/index.php/Infinality"
+          >Infinality bundle</a
+        >
+        as well as their recommended fonts (<code>ibfonts-meta-base</code>).
+      </p>
+      <p>
+        Aside from the single tweak to desktop scale mentioned above, I found
+        all of the fonts (including the terminal font) look great without
+        changing any settings at all, and I am pretty picky about this sort of
+        thing. Maybe I'm getting soft in my old age.
+      </p>
+      <h3>Wifi</h3>
+      <p>
+        Since I've given up and gone with GNOME, I also installed NetworkManager
+        which integrates well with it. Follow the instructions on the Arch wiki
+        to enable it and you get a clicky menu for setting things up.
+      </p>
+      <h3>Chrome</h3>
+      <p>
+        As a former Chrome developer, I know that Google Chrome gets all the
+        development attention and that packaging Chromium is a real beast. But
+        the Arch Chromium packages are pretty nice and you can't get Chrome for
+        Arch so Chromium it is: <code>pacman -S chromium</code>.
+      </p>
+      <p>
+        In the settings, search for [zoom] and adjust the page zoom to 150%, to
+        make pages look the right size.
+      </p>
+      <p>
+        To get Flash working you need to install it from AUR, which just
+        extracts it out of the Google Chrome RPM.
+      </p>
+      <ol>
+        <li>
+          Download the tarball from the
+          <a href="https://aur.archlinux.org/packages/chromium-pepper-flash/"
+            >chromium-pepper-flash AUR</a
+          >.
+        </li>
+        <li>Extract that somewhere.</li>
+        <li><code>cd chromium-pepper-flash; makepkg</code></li>
+        <li><code>sudo pacman -U chromium-pepper-flash*.xz</code></li>
+      </ol>
+      <p>
+        I know tweaking flags is a losing game but visit
+        <code>chrome://flags/</code> and turn on smooth scrolling. You'll thank
+        me.
+      </p>
+      <h3>Remaining issues</h3>
+      <p>
+        As best as I can tell almost everything works great. (Remember back when
+        suspend/resume used to be such a problem on Linux? Now it just works and
+        is lightning fast!)
+      </p>
+      <p>
+        The wifi in my living room is weak; our phones occasionally disconnect
+        from it but our other laptops have been fine. This laptop seems to also
+        have a really weak signal and I think it's disconnected once or twice. I
+        vaguely recall reading a complaint about that in a review of the laptop,
+        too.
+      </p>
+      <p>
+        I notice some occasional graphical glitches in Chrome tabs. Switching in
+        and out fixes them. I assume this is an interaction between GNOME's
+        compositor and Chrome's, but it occurs rarely enough that it doesn't
+        bother me (it very well could just be a bug in the version of Chromium I
+        happened to install).
+      </p>
+      <p>
+        The one issue I've encountered is that the brightness keys don't work. I
+        can change the screen brightness via the GNOME menu but the keys do
+        nothing. Ubuntu has a nice
+        <a href="https://wiki.ubuntu.com/Hotkeys/Troubleshooting"
+          >page about troubleshooting hotkeys</a
+        >
+        and in following those steps I conclude that there is no low-level input
+        event being fired when I press those keys, which points at a
+        kernel-level issue. I note that the f3/f4 keys are unlabelled but
+        hitting fn-f3/f4 produces key events related to adjusting the keyboard
+        brightness (despite there being no keyboard backlight on this laptop),
+        which makes me suspect it's using some similar-but-slightly-different
+        laptop model's data for the key events or something like that. I am
+        pretty sure the right bug to follow is
+        <a href="https://bugzilla.kernel.org/show_bug.cgi?id=98931"
+          >this kernel bug</a
+        >. It has a comment on it within the last month so I am hopeful; I'm
+        tempted to dig in.
+      </p>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">Animation</a></h2>
+        <div>October 18, 2011</div>
+      </div>
+
+      <p>
+        Since lately I've been thinking about where my
+        <a href="">development platform is heading</a>, I've also been thinking
+        about what sort of user environment such a platform would have. In
+        particular, I wondered: if I was willing to give up existing software,
+        what API would I like the software I write in the future to have? Here's
+        one rathole I spent some time in recently.
+      </p>
+      <p>
+        It's historically been hard on Linux to make animations look good. For
+        example Chrome has a number of animations in it (creating a new tab,
+        starting a download) and they all stutter. Ideally an app like Chrome
+        would render frames exactly at the rate the screen could support them,
+        but as far as I know there is no way to get that kind of information on
+        X (you can tell whether the server's accepted your drawing commands, but
+        you can't tell whether those commands have actually flushed or whether
+        you're rendering too slowly).
+      </p>
+      <p>
+        So instead, the internal Chrome animation API has the caller specify the
+        frame rate and Chrome outputs frame at that rate, which means it's
+        pretty much always wrong. (If you're on Linux, try creating a new tab in
+        Chrome and look at the animation: it's frankly terrible.) The proper API
+        would instead be implicit: you provide a function that computes the
+        frame that should be rendered at time <em>t</em>, and the animation
+        system calls that exactly when appropriate, at a perfect frame rate if
+        possible or dropping frames when the system is loaded.
+      </p>
+      <p>
+        This implicit approach is the approach taken by Clutter and Core
+        Animation, but they differ in an interesting way. Clutter, like most
+        <code>GMainLoop</code>-based software, runs the animation loop as part
+        of the main loop. If your code blocks anywhere, animations stutter. In
+        fact, they provide some
+        <a
+          href="http://docs.clutter-project.org/docs/clutter/1.8/ClutterTexture.html#ClutterTexture--load-async"
+          >one-off APIs for some asynchronous operations</a
+        >
+        — in the particular common case of wanting to load an image into a
+        texture, you can set a flag that causes Clutter to use a background
+        thread for it.
+      </p>
+      <p>
+        (I'm not familiar with it, but it appears Android also uses the Clutter
+        model. Combine that with how frequently the Android API has you making
+        blocking calls on the wrong thread, it doesn't surprise me how janky
+        Android animations frequently are. For example on my Nexus S when I
+        launch gmail the app load animation occasionally stutters...)
+      </p>
+      <p>
+        Core Animation, as used on Apple devices, appears to use a different
+        model. (Important disclaimer: I've never used Core Animation, I've just
+        read their docs. I'd love to be corrected on mistakes I've made here.)
+        Your main application event loop issues requests for animations and can
+        block however it wants, while a separate thread internal to Core
+        Animation keeps animations progressing.
+      </p>
+      <p>
+        This prompts the interesting question of how synchronization is handled.
+        Aside from just the immediate concern of how data is locked between your
+        thread and the Core Animation thread, consider starting two animations
+        at the same time that are intended to run in parallel: if the API for
+        starting an animation grabbed a lock for each call, you could imaginably
+        get unlucky and have the animator thread start up the first animation
+        before your thread got a chance to start the second animation. The
+        animations would be out of sync. It appears Core Animation requests are
+        buffered into transactions which are then flushed to the animation
+        thread either implicitly as your main loop iterates or explicitly via a
+        transaction API. (I provide this example mostly to note that getting
+        this stuff right is more complex than just "let me provide a function on
+        how I want my stuff to fly around".)
+      </p>
+      <p>
+        Those two models are significantly different. In Clutter, you're
+        expected to never block, and push off all blocking operations into
+        another thread. In Core Animation, it seems it's ok to occasionally
+        block your main thread.
+      </p>
+      <p>
+        This difference reminds me of the threads vs nonblocking events debate
+        again. Lately I've come to believe that both are appropriate for
+        different circumstances;
+        <a href="http://swtch.com/~rsc/talks/threads07/"
+          >this talk by Russ Cox</a
+        >
+        is pretty convincing. In the case of animations, I worry that at 60fps
+        you only get 16ms per frame which means in the Clutter model if you ever
+        take more than that, even in CPU-bound code, your animation will skip.
+        (It is interesting to contrast this with the equivalent problem in a
+        node.js app: it is perhaps acceptable for an HTTP request to get delayed
+        by 10ms or so if the CPU is already completely in use by some other
+        request; but in the animation case, that is completely unacceptable.)
+      </p>
+      <p>
+        With both Russ's talk and my recent post about Haskell on my mind, I sat
+        down to attempt to sketch out an API of my own. I'll save you the
+        exposition about what the past weeks have been spent on and summarize
+        the two major points of effort.
+      </p>
+      <p>
+        One is that just getting pixels on the screen in a hardware-accelerated,
+        vsynced, non-flickery manner on Linux is a terrible mess; every time I
+        thought I've gotten a handle on Xrender vs GL or EGL vs GLX or DRI vs
+        nVidia, I discover the three differently-supported OpenGL extensions for
+        vsyncing or the DRM vsync interface and the X server's notion of vsync,
+        or how the Intel GL driver apparently only vsyncs only if the window is
+        larger than somewhere around 80% of the screen size, or how there's more
+        to learn about DRI and AIGLX and <code>$LIBGL_ALWAYS_INDIRECT</code> and
+        nVidia's <code>$__GL_YIELD</code>. I can sorta sometimes make things
+        work on one computer but I have no confidence that any of my code will
+        work elsewhere.
+      </p>
+      <p>
+        The second major point of discovery is that an API for doing animations
+        in a natural way is likely going to be language-specific. I had thought
+        that maybe I could construct a C layer and wrap that from my language du
+        jour, but in practice buffering updates between threads is quite
+        pleasant in Go or in Haskell in similar but slightly different ways that
+        rely on garbage collection and threading-related primitives. For
+        example, I think Core Animation has a lot of machinery in it to noun-ify
+        in Objective-C objects concepts that would work better as closures.
+        Instead, I think the right primitive library just manages images
+        (textures) and putting them on-screen, while it's up to a library in the
+        host language to do animations right.
+      </p>
+      <p>
+        Recently I've been fretting about how GL calls must happen on the same
+        thread as X calls and Xlib is not threadsafe, which means all UI
+        interaction needs to be proxied through the same thread that is managing
+        the screen updates. It is a path that leads to madness (like: Xlib
+        itself has all these calls that block on the X server). And in the
+        nVidia world it appears their libgl is rather Xlib-specific (that is,
+        not even xcb will work; it appears they've released EGL drivers for
+        Tegra only(?)) so there's no getting away from it.
+      </p>
+      <p>
+        In all, I feel like I've been writing code in circles and I haven't made
+        much progress, so I'm considering abandoning the whole thing. Maybe some
+        person smarter than me can navigate the graphics world more effectively.
+        But then I showed my cute demos of images flying around with
+        flicker-free perfect low-CPU-usage rendering and some friends oohed and
+        aahed appropriately so I haven't given up completely yet. I'll probably
+        let it stew for a bit in my subconscious before trying again.
+      </p>
+    </main>
+  </body>
+</html>

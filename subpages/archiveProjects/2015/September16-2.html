@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">Random software: Blizzard parser</a></h2>
+        <div>September 16, 2015</div>
+      </div>
+
+      <p>
+        <a href="http://github.com/martine/goblizzard">goblizzard</a>, as
+        described there in the README, is a Golang implementation of parsers for
+        various files related to replays from some video games.
+      </p>
+      <p>
+        This was just a random fiddling around project — nothing too interesting
+        and sadly inconclusive. I post it here because this blog is in theory
+        about what I'm doing and here is a thing I've done.
+      </p>
+      <p>
+        These file formats are hilariously complex (e.g. multiple different hash
+        functions and hash tables that are obfuscated; one file header field
+        even indicates the disk sector size) and at one layer they have a bunch
+        of data structures that are encoded in a bitpacked format. (The
+        bitpacked format itself is really strange, as bits are read
+        <a
+          href="https://github.com/martine/goblizzard/blob/master/src/blizzard/replay/bitreader_test.go#L22"
+          >first from the LSB side of bytes but in MSB order</a
+        >.)
+      </p>
+      <p>
+        The one perhaps interesting piece of this is some of the code
+        generation. Blizzard published a Python module that includes decoders
+        for these data structures; I wrote code that loaded the Python module,
+        pulled out all the definitions, and generated equivalent Go code. This
+        gives you static typing over the various events, as seen in
+        <a
+          href="http://godoc.org/github.com/martine/goblizzard/src/blizzard/replay"
+          >the API docs</a
+        >.
+      </p>
+    </main>
+  </body>
+</html>

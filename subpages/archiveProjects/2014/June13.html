@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">Informal statistics</a></h2>
+        <div>June 13, 2014</div>
+      </div>
+
+      <p>
+        When you have a collection of numbers — say, the time it takes to render
+        a web page — it's instinctive to reach for the average as a way of
+        summarizing the data. This single number then serves to represent the
+        whole: "the site renders in an average of 50ms".
+      </p>
+      <p>
+        Here's an obvious observation: any summary of numbers like this is
+        exactly the problem of statistics and statistics is filled with more
+        principled ways of looking at data. But statistics is also intimidating
+        and opaque so instead let's talk about it informally.
+      </p>
+      <p>
+        If I told you that the average was 50ms, that statement conveys a mental
+        image of the data: you'll intuit that it's usually around 50ms,
+        sometimes faster, sometimes slower. You'd feel tricked (or just annoyed)
+        if I then said that the underlying data was nine page loads at 10ms and
+        one at 410ms. It's a trick because while the statement is true by the
+        mathematical meaning of average, when we talk about averages we're
+        actually conveying both the mathematical meaning and the
+        <em>shape</em> of the data.
+      </p>
+      <p>
+        Let's make that more formal. The mental image that "average" implies is
+        a bell curve; that is to say, a normal distribution. A normal
+        distribution is defined by two parameters, the mean and the deviation.
+        Rather than overwhelming you with a list of sample values, I instead
+        told you a picture of a normal distribution by telling you the
+        parameter(s) of it.
+      </p>
+      <p>
+        This is why the average is frequently useful and sometimes totally
+        misleading. Many data sets are normally distributed, or at least
+        symmetrically distributed around the average, and for those the picture
+        implied by the average works. But plenty of data instead matches other
+        distributions (for example, anything "long-tailed") and for those the
+        average is unhelpful.
+      </p>
+      <p>
+        Some, when presented with this point, would cry for better statistical
+        literacy. They'll plug data into formulas and brandish p-values and
+        confidence intervals. That approach may be useful when everyone knows
+        how to read those numbers but in my experience that usually isn't the
+        case. (Frequently the formulas are applied wrong, or in circumstances
+        where they're the wrong formula anyway.)
+      </p>
+      <p>
+        Instead the point I'd like to make is that there is a useful middle
+        ground between "go read a stats textbook" and "math is hard, let's use
+        the average". It's useful to be able to talk about data without needing
+        to produce every last data point; if you can swoop your hands in the air
+        and say "it looks like <em>this</em>" then that is still communication
+        and it's still better than a misapplied average.
+      </p>
+      <p>
+        Here's an example of that distinction. Life expectancy is a statistic on
+        the average lifetime of a human, which is currently around 80 for
+        developed countries. But lifetimes are not normally distributed:
+        <a
+          href="http://en.wikipedia.org/wiki/Age-adjusted_life_expectancy#Life_expectancy_variation_over_time"
+          >Wikipedia says</a
+        >
+        in 1600s England life expectancy was around 40 years, but that's
+        primarily due to infant mortality; aristocrats who made it to age 21
+        could expect to live into their 70s, which is pretty comparable to
+        today's numbers.
+      </p>
+      <p>
+        As with any data visualization — even data visualization comprised of a
+        single number — the first step before diving into numbers and pictures
+        is to decide which question you're asking. If you're asking "where do
+        people live the longest?" you will pick a different metric than one
+        attempting to measure cultural progress in health care. And going back
+        to the website example, if the question is "Is my site slow?" then maybe
+        quantiles are more interesting, because they lead to statements like
+        "95% of users load it in under X milliseconds".
+      </p>
+    </main>
+  </body>
+</html>

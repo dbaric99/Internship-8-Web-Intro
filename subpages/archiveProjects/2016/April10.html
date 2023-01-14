@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">TypeScript's type-independent output</a></h2>
+        <span>April 10, 2016</span>
+      </div>
+
+      <p>
+        Many questions about TypeScript's type system and implementation can be
+        answered by understanding one of their central design goals: the
+        <em
+          >output (generated JavaScript) is independent of the types found in
+          the input</em
+        >. This seems simple enough but it has some surprising consequences.
+        Here are some answers to questions you might have that are actually
+        already answered by this principle.
+      </p>
+      <p>
+        <strong
+          >Can a program with type errors still compile and produce JS?</strong
+        >
+        Yes, because the output is the same no matter the types. (There's a
+        compiler flag, <code>--noEmitOnError</code> to say "don't generate any
+        output when there's an error"; you might want to turn it on
+        <a href="">in your <code>tsconfig.json</code></a>
+        for serious apps.)
+      </p>
+      <p>
+        The compiler can even generate something if the input has syntax errors
+        though that is likely not what you want. Type some gibberish in the
+        <a href="https://www.typescriptlang.org/play/">TypeScript playground</a>
+        to see.
+      </p>
+      <p>
+        <strong
+          >Can plain JavaScript files without any type annotations be transpiled
+          by the compiler?</strong
+        >
+        Yes, because of the prior point. (You have to
+        <a
+          href="https://github.com/Microsoft/TypeScript/wiki/What's-new-in-TypeScript#including-js-files-with---allowjs"
+          >opt in to allow the <code>.js</code> extension</a
+        >.)
+      </p>
+      <p>
+        <strong
+          >How do I make a run-time decision based on the underlying type of a
+          variable?</strong
+        >
+        E.g. if a function accepts some <code>BaseClass</code> param, is there a
+        way to determine which subclass was actually passed? The answer is no,
+        unless you provide some method on <code>BaseClass</code> yourself or use
+        <code>typeof</code>/<code>instanceof</code>, which only knows about the
+        types that JavaScript knows about. (This is true in any language, of
+        course — if the type is only known at run time, it must be a run-time
+        type query!)
+      </p>
+      <p>
+        However, see also the
+        <a
+          href="https://github.com/Microsoft/TypeScript/wiki/What's-new-in-TypeScript#user-defined-type-guard-functions"
+          >docs on type guards</a
+        >
+        for some assistance from the compiler.
+      </p>
+      <p>
+        <strong>Are TypeScript union types the same as sum types?</strong> A
+        TypeScript union type is written like <code>string|number</code>, which
+        looks a lot like a sum type as written in ML/Haskell. But a union type
+        just means the variable (or return type of a function, etc.) can be
+        either of the options, and determining which requires a
+        <code>typeof</code>/<code>instanceof</code> check to determine the
+        run-time JavaScript type. In contrast, an ML-style sum type has a type
+        tag that e.g. requires you to pattern match to extract the contained
+        value.
+      </p>
+      <p>
+        (Why provide these weak-looking union types? Because TypeScript is
+        attempting to model existing JavaScript usage, and many APIs such as
+        jQuery semantically are already using union types. Also, as you'll see
+        in a future post, these union types end up being pretty powerful.)
+      </p>
+      <p>
+        <strong
+          >Can I use <code>for (... of ...)</code> to iterate through ES6
+          maps?</strong
+        >
+        Because the generated code is independent of types, when targeting ES5
+        output, for-of loops always generate plain
+      </p>
+      <pre><code>for (var i = 0; i &lt; x.length; i++) ...
+        </code></pre>
+      <p>
+        loops. When targeting ES6 output, the output is the same as the input, a
+        for-of loop. This means you can't use a for-of loop to iterate through
+        an ES6 map when targeting ES5 output, which is pretty disappointing!
+      </p>
+      <p>
+        There are open bugs on this but the solution is not obvious. Perhaps the
+        right thing would be to polyfill ES6 iterators and always use them.
+      </p>
+      <p>
+        <strong>How do overloaded functions work?</strong> TypeScript lets you
+        write code with overloaded functions like this:
+      </p>
+      <pre><code>function add(a: number, b: number): number;
+        function add(a: string, b: string): string;
+        function add(a: any, b: any): any { return a + b; }
+        </code></pre>
+      <p>
+        However, because the output is the same regardless of the types, you
+        already know that the first two type-only definitions are dropped in the
+        output. You can only proivde a single definition of a function to
+        JavaScript, and that function, which provides the actual implementation,
+        must be compatible with all the different type signatures declared. (In
+        practice, overloaded functions are mostly used to describe the types of
+        existing JS libraries.)
+      </p>
+    </main>
+  </body>
+</html>

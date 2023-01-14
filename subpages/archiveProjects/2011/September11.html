@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tech Notes: Two surprises in browser crashes</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
+        <div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div>
+        <h2><a href="">Platform of the future</a></h2>
+        <div>September 11, 2011</div>
+      </div>
+
+      <p>
+        I remember years ago seeing a talk by the YouTube founders that has
+        stuck with me for its simple insight. They said, roughly, that lots of
+        people had webcams or cell phone cameras, lots of people had Flash
+        players for video, and lots of people had the bandwidth to stream video;
+        these three factors would clearly converge into a future of personalized
+        television using the web. YouTube may have been a video piracy website
+        for some while but its mark on history at this point is clearly just
+        what the founders had envisioned.
+      </p>
+      <p>
+        With that in mind, let me point out some converging factors I see among
+        the programmer circle I hang out in:
+      </p>
+      <ul>
+        <li>
+          <p>
+            The interesting platforms for software developers at this point are
+            mobile devices and the web. There are self-contained markets like
+            games for Windows or graphics software for OS X but I don't see
+            anyone sitting down at this point and saying "I'm gonna write a
+            program to address human need&amp;sup1; [x]!" and thinking of
+            targeting any desktop platform.
+          </p>
+        </li>
+        <li>
+          <p>
+            Windows is basically dead for new developers. It's gonna take a long
+            while for it to be completely gone, but I don't see the trend
+            reversing. Its support for developing software for the major mobile
+            platforms is somewhere in the area of "worse than Linux". Running
+            any of the normal web stack on Windows requires heoric effort on the
+            part of each piece of software (e.g. look at all the resources
+            Joyent has poured into porting node.js to Windows) and porting seems
+            silly given you're going to deploy the result on Linux servers
+            anyway.
+          </p>
+        </li>
+        <li>
+          <p>
+            Apple seems increasingly uninterested in developers except for their
+            walled gardens. De-emphasizing Flash (part of the web, like it or
+            not), de-emphasizing Java (and consequently Android), de-emphasizing
+            desktops and the web in general (iOS). I don't ascribe malice to
+            this; they're improving the pieces they think are important and
+            non-Apple inventions are not important to Apple's plans.
+          </p>
+        </li>
+        <li>
+          <p>
+            Linux on the desktop (in the Gnome/KDE/dbus/fookit sense) is not
+            gonna happen. It would've happened by now if it could. I have some
+            hope for Ubuntu but there is just too much of a morass.
+          </p>
+        </li>
+      </ul>
+      <p>
+        The above factors produce an interesting consequence: most smart
+        programmers I know have OS X machines but don't actually care about OS X
+        beyond it being Unixy enough and the hardware working. If you look over
+        the shoulder of Brad Fitzpatrick or Ryan Dahl you see them running a
+        browser and a terminal. I've heard the Plan9 / Go language guys run
+        MacBooks just to run X11.
+      </p>
+      <p>
+        And the curious thing about this is, at the level these people use the
+        system at, OS X is actually kind of terrible. The hardware is amazing,
+        of course. But the file system is slow; simple things, like making
+        <code>ls</code> show colors, used to require downloading binaries from a
+        third party&amp;sup2; installing a compiler requires a 4gb Xcode
+        download; installing now-standard tools like <code>git</code> requires
+        poking around on web pages and unpacking dmgs; all of the core
+        development tools (gcc 4.2, gdb 6) are relatively ancient and slow by a
+        Linux standard. If anything, the attributes that make OS X unique are
+        liabilities to be overcome, not benefits.
+      </p>
+      <p>
+        One amusing instance of this effect was pithily noted by a coworker:
+        "Chrome is a Windows application developed on Linux and designed on
+        Macs." It's true: when writing cross-platform Chrome code you're best
+        off writing it on Linux where the tools are better, but past that point
+        there's little point in investing many resources into Linux-specific
+        code as there are no users there. (I've read that Firefox is in a
+        similar balance.)
+      </p>
+      <p>Here are some potential futures:</p>
+      <ol>
+        <li>
+          <p>
+            Developing software on your local hardware becomes obsolete. This
+            appears to be the vision espoused by Google ("the cloud!"). I am
+            skeptical the next Ruby on Rails is gonna be written by someone
+            using EC2 as their development environment but it is maybe
+            plausible.
+          </p>
+        </li>
+        <li>
+          <p>
+            Apple remains/becomes significant enough that everyone becomes
+            locked into their platforms, regardless of how much they like it.
+            Writing OS X / iOS native software starts sounding appealing to even
+            me once 90% of college grads have MacBooks and open checkbooks. I
+            will be sad if my profession ever gets to the state where you pay
+            30% of your revenue to the company that owns the platform, but the
+            market gets to decide that.
+          </p>
+        </li>
+        <li>
+          <p>
+            Apple remains/becomes significant enough that their platforms are
+            the platform of choice for discriminating hackers. Many would say
+            this has already happened — maybe if Brad had started today he and
+            Anatoly would've written memcached on OS X (<a
+              href="http://evan-tech.livejournal.com/276056.html"
+              >my one contribution to the project!</a
+            >) first and ported to Linux to run on servers only after the proof
+            of concept. Perhaps at some point the soup of macports/brew/fink
+            will converge to a point where installing a recent version of emacs
+            isn't predicated on a 4gb Xcode download. Perhaps other people don't
+            mind the frustrating OS X window management and slow git as much as
+            I do.
+          </p>
+        </li>
+      </ol>
+      <p>
+        And here's an imaginary future of my own. Suppose someone came out with
+        a distribution of Linux that only supported specifically named hardware,
+        but supported that hardware perfectly. (That hardware could even be
+        Apple hardware.) Suppose further that they threw away most of the Linux
+        userland, the distribution and desktop baggage — like
+        <a href="">broken software updates</a>, or
+        <a href="http://www.google.com/search?q=torvalds+gnome+3+crazy"
+          >this month's flavor of crazy new UI</a
+        >, or the promise of 100000 apps that all work in a janky way — and
+        instead curated just 10 core apps to work just right.
+      </p>
+      <p>
+        I imagine a system where getting a project-local LAMP or node stack is a
+        primitive operation, allowing your dev environment to closely mirror
+        production. Perhaps you'd make the system oriented around VMs (like
+        <a href="http://smartos.org/">SmartOS</a>) to get the delta even
+        smaller.
+      </p>
+      <p>
+        Would such a developer-focused OS succeed? I know I'd use it, but I am
+        weird. (When my designer friends ask me about the tools I use, I start
+        with the disclaimer: I am a Morlock.) It of course wouldn't work for
+        developing for iOS, but it would cover the web and Android. Perhaps
+        other programmers rely too much on Mac-specific software like iTunes or
+        TextMate, but I don't know any of those people.
+      </p>
+      <p>
+        But there's no money to be made in such a thing, so it will likely
+        remain imaginary. The dark horse left out in the above discussions is
+        ChromeOS, but as far as I can tell they are just espousing vision #1
+        above. (Despite working on Chrome, I have very little visibility in
+        ChromeOS's plans; not because they are hidden, but just because I
+        haven't looked.)
+      </p>
+      <p>
+        Where does that leave us hackers, then? I guess it's worth noting that
+        Brad, cited above, gave up on OS X — "too many beachballs" — and went
+        back to a moderately-functioning Ubuntu laptop, upon which he runs the
+        same software as before: a browser and a terminal.
+      </p>
+      <hr />
+      <p>
+        PS: what's wrong with Ubuntu? It deserves a post of its own, but it
+        boils down to that (much like
+        <a href="http://elementaryos.org/">elementary</a>) they are trying to
+        make a computer for human beings, but they lack the focus and resources
+        to do anything that isn't a less-reliable clone of whatever Apple does.
+        The result is the uncanny valley effect.
+      </p>
+      <p>
+        [1] I qualify <em>human</em> need there because there is still a nice
+        niche market for writing
+        <a href="http://www.panic.com/">tools to solve computer problems</a>.
+        I've also intentionally overlooked the large amount of "enterprise
+        software" yet to be written and maintained on Windows, because I just
+        don't see any new blood picking up Windows development willingly just to
+        get into that field.
+      </p>
+      <p>
+        [2] My experience of this is out of date; it's now supported by OS X,
+        but off by default.
+      </p>
+    </main>
+  </body>
+</html>

@@ -1,302 +1,310 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tech Notes: Two surprises in browser crashes</title>
-</head>
-<body>
-    
+  </head>
+  <body>
     <header>
+      <div>
+        <h1>
+          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="">Tech Notes</a>
+        </h1>
         <div>
-            <h1>
-                <a href="./subpages/neugierig.html">neugierig.org: </a>
-                <a href="">Tech Notes</a>
-            </h1>
-            <div>
-                <span>
-                    You're reading a single entry. Go <a href="../blog.html">back to the front page</a> for more.
-                </span>
-            </div>
+          <span>
+            You're reading a single entry. Go
+            <a href="../blog.html">back to the front page</a> for more.
+          </span>
         </div>
+      </div>
     </header>
 
     <main>
-        <div>
-            <h2>Scaling TypeScript compilation</h2>
-            <span>October 28, 2020</span>
-        </div>
+      <div>
+        <h2><a href="">Scaling TypeScript compilation</a></h2>
+        <span>October 28, 2020</span>
+      </div>
 
-        <p>
-            I've now spent a few more years on our project to bring TypeScript to
-            Google that <a href="">I wrote about
-            before</a>.
-            As I wrote there, TypeScript itself already works, and our challenges
-            have been primarily around adapting TypeScript to the specifics of our
-            environment.  One way in which our apps are different from typical
-            users of TypeScript is their size: how do you make TypeScript scale to
-            projects with millions of lines of code?
-        </p>
+      <p>
+        I've now spent a few more years on our project to bring TypeScript to
+        Google that <a href="">I wrote about before</a>. As I wrote there,
+        TypeScript itself already works, and our challenges have been primarily
+        around adapting TypeScript to the specifics of our environment. One way
+        in which our apps are different from typical users of TypeScript is
+        their size: how do you make TypeScript scale to projects with millions
+        of lines of code?
+      </p>
 
-        <p>
-            In this post I will explain a bit about some approaches we've taken,
-            and in particular about the project I've been working on for the last
-            few months.  I write about it here in public in part because the
-            relevant code is open source (with important caveats, described
-            later).  Also, these approaches are generally not specific to
-            TypeScript, so I hope you might find them useful when considering the
-            design of other languages.
-        </p>
+      <p>
+        In this post I will explain a bit about some approaches we've taken, and
+        in particular about the project I've been working on for the last few
+        months. I write about it here in public in part because the relevant
+        code is open source (with important caveats, described later). Also,
+        these approaches are generally not specific to TypeScript, so I hope you
+        might find them useful when considering the design of other languages.
+      </p>
 
-        <p>
-            I have one additional caveat.  One of the hardest constraints we
-            engineers have on design is migration.  If we were designing from
-            scratch we might make different design tradeoffs, but in practice
-            massive codebases don't spring into existence to fit some new design,
-            and the evolutionary process often ends up tying our hands.  Often the
-            answer to "why not X instead of Y" is that Y was something we had on
-            hand, and the relative benefit of X doesn't overcome the relative cost
-            of implementing it over Y.
-        </p>
+      <p>
+        I have one additional caveat. One of the hardest constraints we
+        engineers have on design is migration. If we were designing from scratch
+        we might make different design tradeoffs, but in practice massive
+        codebases don't spring into existence to fit some new design, and the
+        evolutionary process often ends up tying our hands. Often the answer to
+        "why not X instead of Y" is that Y was something we had on hand, and the
+        relative benefit of X doesn't overcome the relative cost of implementing
+        it over Y.
+      </p>
 
-        <div>
-            <h2>Parallelizing with Bazel</h2>
-        </div>
+      <div>
+        <h2>Parallelizing with Bazel</h2>
+      </div>
 
-        <p>
-            TypeScript's typical compilation model is more or less a program at a
-            time: you give the compiler all of your source, and it spits out a
-            pass/fail for typechecking and JavaScript output.  This is the obvious
-            model for a language when projects are small, but it means the work of
-            the compiler is proportional to the size of the project and slows as
-            the project grows.
-        </p>
+      <p>
+        TypeScript's typical compilation model is more or less a program at a
+        time: you give the compiler all of your source, and it spits out a
+        pass/fail for typechecking and JavaScript output. This is the obvious
+        model for a language when projects are small, but it means the work of
+        the compiler is proportional to the size of the project and slows as the
+        project grows.
+      </p>
 
-        <p>
-            If there's a repeated theme in this post, it's that to make
-            compilation scale you must find ways to not do work proportional to
-            the size of the whole program.  On its face, that is a little silly —
-            obviously a compiler must visit the whole program.  But what you can
-            do is break that work up into smaller pieces that can be run in
-            parallel or cached.
-        </p>
+      <p>
+        If there's a repeated theme in this post, it's that to make compilation
+        scale you must find ways to not do work proportional to the size of the
+        whole program. On its face, that is a little silly — obviously a
+        compiler must visit the whole program. But what you can do is break that
+        work up into smaller pieces that can be run in parallel or cached.
+      </p>
 
-        <p>
-            We do this using the <a href="https://bazel.build">Bazel build system</a>.
-            Bazel's lineage is building C++/Java code, and in the C++ world this
-            is already more or less solved: you "just" invoke the compiler
-            separately on each source file.  (It's worth noting that even in C++
-            you eventually must link your .o files, and interesting optimizations
-            happen between those .o files.  The state of the art is <a href="https://blog.llvm.org/posts/2016-06-21-thinlto-scalable-and-incremental-lto/">still
-            experimenting with how to parallelize that
-            work</a>.
-            Thankfully, TypeScript from a C++ perspective is more or less only a
-            compiler and not a linker, so the separable C++ model mostly works.)
-        </p>
+      <p>
+        We do this using the
+        <a href="https://bazel.build">Bazel build system</a>. Bazel's lineage is
+        building C++/Java code, and in the C++ world this is already more or
+        less solved: you "just" invoke the compiler separately on each source
+        file. (It's worth noting that even in C++ you eventually must link your
+        .o files, and interesting optimizations happen between those .o files.
+        The state of the art is
+        <a
+          href="https://blog.llvm.org/posts/2016-06-21-thinlto-scalable-and-incremental-lto/"
+          >still experimenting with how to parallelize that work</a
+        >. Thankfully, TypeScript from a C++ perspective is more or less only a
+        compiler and not a linker, so the separable C++ model mostly works.)
+      </p>
 
-        <p>
-            The Bazel website better says what it does, but for the purposes of
-            this post I'll review a few high level concepts.  Bazel splits code
-            into a notion of "targets", each which may "depend" on other targets,
-            and you provide Bazel that graph as an explicit input, external to the
-            source code.  (Bazel targets are typically sets of source files, but
-            for the purposes of this post you could imagine that targets are 1:1
-            with source files and I think it'll mostly work out the same.)
-        </p>
+      <p>
+        The Bazel website better says what it does, but for the purposes of this
+        post I'll review a few high level concepts. Bazel splits code into a
+        notion of "targets", each which may "depend" on other targets, and you
+        provide Bazel that graph as an explicit input, external to the source
+        code. (Bazel targets are typically sets of source files, but for the
+        purposes of this post you could imagine that targets are 1:1 with source
+        files and I think it'll mostly work out the same.)
+      </p>
 
-        <p>For a running example, you might tell Bazel:</p>
+      <p>For a running example, you might tell Bazel:</p>
 
-        <div>
-            <ul>
-                <li>my app target depends on</li>
-                <li>one target per screen within the app, and those targets each depend on</li>
-                <li>implementations of various widgets, and those widgets then depend on</li>
-                <li>some web framework, and so on.<br>
-                </li>
-            </ul>
-        </div>
+      <div>
+        <ul>
+          <li>my app target depends on</li>
+          <li>
+            one target per screen within the app, and those targets each depend
+            on
+          </li>
+          <li>
+            implementations of various widgets, and those widgets then depend on
+          </li>
+          <li>some web framework, and so on.<br /></li>
+        </ul>
+      </div>
 
-        <p>Here are some benefits Bazel brings:</p>
+      <p>Here are some benefits Bazel brings:</p>
 
-        <div>
-            <ol>
-                <li>
-                    <p>
-                        Parallelization of builds.  We can type check all of the widgets
-                        (which don't depend on each other) in parallel, either using multiple
-                        CPU cores locally or in cloud build farms.  If someone else at the
-                        company already built the same code you built, we can reuse their
-                        build results without doing the work again.
-                    </p>
-                </li>
-                <li>
-                    <p>
-                        Accurate tracking of dependencies.  Suppose the above app has
-                        separate tests for each of its screens, and the carousel widget is
-                        only used by the home page screen.  If you make a change to the
-                        carousel widget, Bazel computes that you only need to rebuild and run
-                        the test for the home page, because the other screens are unaffected.
-                        One nice way to frame this is that the build/test work is proportional
-                        to the size of the <em>change made</em>, rather than the size of the entire
-                        app.
-                    </p>
-                </li>
-                <li>
-                    <p>
-                        Cross-language dependencies.  The hypothetical app I described
-                        above is maybe all TypeScript, but in Bazel we also express that these
-                        build steps depend on the TypeScript compiler (itself a target), which
-                        depends on nodejs (another target), which depends on the C++ compiler
-                        (target).  Or we might have a portion of the app that depends on some
-                        RPC code generator written in Java (target), which itself has more
-                        Java code targets beneath it.  A change to some library within the
-                        Java code generator still triggers rebuilding exactly the affected
-                        downstream code.
-                    </p>
-                </li>
-                </ol>
-        </div>
+      <div>
+        <ol>
+          <li>
+            <p>
+              Parallelization of builds. We can type check all of the widgets
+              (which don't depend on each other) in parallel, either using
+              multiple CPU cores locally or in cloud build farms. If someone
+              else at the company already built the same code you built, we can
+              reuse their build results without doing the work again.
+            </p>
+          </li>
+          <li>
+            <p>
+              Accurate tracking of dependencies. Suppose the above app has
+              separate tests for each of its screens, and the carousel widget is
+              only used by the home page screen. If you make a change to the
+              carousel widget, Bazel computes that you only need to rebuild and
+              run the test for the home page, because the other screens are
+              unaffected. One nice way to frame this is that the build/test work
+              is proportional to the size of the <em>change made</em>, rather
+              than the size of the entire app.
+            </p>
+          </li>
+          <li>
+            <p>
+              Cross-language dependencies. The hypothetical app I described
+              above is maybe all TypeScript, but in Bazel we also express that
+              these build steps depend on the TypeScript compiler (itself a
+              target), which depends on nodejs (another target), which depends
+              on the C++ compiler (target). Or we might have a portion of the
+              app that depends on some RPC code generator written in Java
+              (target), which itself has more Java code targets beneath it. A
+              change to some library within the Java code generator still
+              triggers rebuilding exactly the affected downstream code.
+            </p>
+          </li>
+        </ol>
+      </div>
 
-        <p>
-            I mention the above not to sell Bazel to you — <a href="https://neugierig.org/software/blog/2020/05/ninja.html">as the author of a build system myself</a>, I am a
-            little mixed on Bazel, though my objections have more to do with the
-            implementation than the conceptual model — but rather to describe our
-            environment.  Our work with TypeScript has been fitting it into the
-            Bazel model, which we do in the following way.
-        </p>
+      <p>
+        I mention the above not to sell Bazel to you —
+        <a href="https://neugierig.org/software/blog/2020/05/ninja.html"
+          >as the author of a build system myself</a
+        >, I am a little mixed on Bazel, though my objections have more to do
+        with the implementation than the conceptual model — but rather to
+        describe our environment. Our work with TypeScript has been fitting it
+        into the Bazel model, which we do in the following way.
+      </p>
 
-        <div>
-            <h2>Bazel and TypeScript</h2>
-        </div>
+      <div>
+        <h2>Bazel and TypeScript</h2>
+      </div>
 
-        <p>
-            To build a Bazel target, we feed its source to the TypeScript compiler
-            in the <code>--declarations</code> mode, which causes it to type check the code,
-            generate JavaScript, and also generate a .d.ts file that summarizes
-            the exported API of that target.  This .d.ts summary is then used as
-            an input to any dependent compilation.
-        </p>
+      <p>
+        To build a Bazel target, we feed its source to the TypeScript compiler
+        in the <code>--declarations</code> mode, which causes it to type check
+        the code, generate JavaScript, and also generate a .d.ts file that
+        summarizes the exported API of that target. This .d.ts summary is then
+        used as an input to any dependent compilation.
+      </p>
 
-        <p>
-            If you're not familiar with TypeScript's d.ts. generation, you can see
-            it on the TypeScript playground by clicking on the ".D.TS" tab on the
-            right.  <a href="https://www.typescriptlang.org/play?#code/GYVwdgxgLglg9mABDMUCmAnMBDANgCgEpEBvAKEUQzShC0QGYBuMgXzLLQA8AHODKIlCRYCIUVIUqNOkhToseIi1ZA">In this example on the
-            Playground</a>,
-            you can see the "internal" function stays hidden, and also the
-            inferred return type becomes explicit.  (A common analogy to use here
-            is this is like a C++ header file, though it is automatically
-            extracted from the source.)
-        </p>
+      <p>
+        If you're not familiar with TypeScript's d.ts. generation, you can see
+        it on the TypeScript playground by clicking on the ".D.TS" tab on the
+        right.
+        <a
+          href="https://www.typescriptlang.org/play?#code/GYVwdgxgLglg9mABDMUCmAnMBDANgCgEpEBvAKEUQzShC0QGYBuMgXzLLQA8AHODKIlCRYCIUVIUqNOkhToseIi1ZA"
+          >In this example on the Playground</a
+        >, you can see the "internal" function stays hidden, and also the
+        inferred return type becomes explicit. (A common analogy to use here is
+        this is like a C++ header file, though it is automatically extracted
+        from the source.)
+      </p>
 
-        <p>
-            To make this more concrete, suppose target A.ts depends on target B.ts
-            depends on C.ts.  (In Bazel, targets are not source files, but it
-            makes the exposition here simpler to just talk about source files.)
-            To build under Bazel, we first build C.ts, producing some C.d.ts that
-            describes its exported API.  Then we build B.ts, giving it C.d.ts as
-            an input.  Finally, we build A.ts, giving it B.d.ts and C.d.ts as
-            inputs.
-        </p>
+      <p>
+        To make this more concrete, suppose target A.ts depends on target B.ts
+        depends on C.ts. (In Bazel, targets are not source files, but it makes
+        the exposition here simpler to just talk about source files.) To build
+        under Bazel, we first build C.ts, producing some C.d.ts that describes
+        its exported API. Then we build B.ts, giving it C.d.ts as an input.
+        Finally, we build A.ts, giving it B.d.ts and C.d.ts as inputs.
+      </p>
 
-        <p>
-            Using these d.ts summaries has a few benefits.  For one, they're
-            typically smaller than the original source code, because they don't
-            contain implementation, which means they're less work for the compiler
-            to load.  They also include the results of type inference (again see
-            the above Playground example), so we can have the compiler infer the
-            types found in C once, and reuse that result in A and B.  Another more
-            subtle benefit is reducing unneeded work: a change to C.ts that
-            doesn't affect its exported API will leave C.d.ts unchanged, which
-            means we don't need to recheck A or B.  (I <a href="">previously wrote about a
-            similar trick using C++ shared
-            objects</a> to
-            avoid relinking).
-        </p>
+      <p>
+        Using these d.ts summaries has a few benefits. For one, they're
+        typically smaller than the original source code, because they don't
+        contain implementation, which means they're less work for the compiler
+        to load. They also include the results of type inference (again see the
+        above Playground example), so we can have the compiler infer the types
+        found in C once, and reuse that result in A and B. Another more subtle
+        benefit is reducing unneeded work: a change to C.ts that doesn't affect
+        its exported API will leave C.d.ts unchanged, which means we don't need
+        to recheck A or B. (I
+        <a href=""
+          >previously wrote about a similar trick using C++ shared objects</a
+        >
+        to avoid relinking).
+      </p>
 
-        <p>
-            Importantly in our builds we tweak the TS compiler to not type check
-            the d.ts of dependencies, but instead only to check the direct sources
-            of the current target.  Doing this is not easily available via the
-            TypeScript command-line, but was done by writing a different frontend
-            that uses the TS compiler as a library, which we needed to do anyway
-            for other Bazel reasons.
-        </p>
+      <p>
+        Importantly in our builds we tweak the TS compiler to not type check the
+        d.ts of dependencies, but instead only to check the direct sources of
+        the current target. Doing this is not easily available via the
+        TypeScript command-line, but was done by writing a different frontend
+        that uses the TS compiler as a library, which we needed to do anyway for
+        other Bazel reasons.
+      </p>
 
-        <p>
-            I think this pattern of separating interface definitions from source
-            is pretty common across programming languages.  The main design
-            tradeoff here is whether such definitions are written by hand (like
-            C++ headers or say .mli files in OCaml) vs extracting them
-            automatically from source (as we've done here, and as found in other
-            languages).
-        </p>
+      <p>
+        I think this pattern of separating interface definitions from source is
+        pretty common across programming languages. The main design tradeoff
+        here is whether such definitions are written by hand (like C++ headers
+        or say .mli files in OCaml) vs extracting them automatically from source
+        (as we've done here, and as found in other languages).
+      </p>
 
-        <p>
-            In all, this mechanism is similar to <a href="https://www.typescriptlang.org/docs/handbook/project-references.html">project references in TypeScript</a>,
-            though I have little familiarity with them — they were added to the
-            language after we built the above.  One contrast is that our splits
-            are more fine-grained; in a big project we might have hundreds of
-            thousands of these build steps.  There is a tradeoff here, where the
-            more fine-grained the splits get, the more fine-grained your rebuilds
-            can get in terms of not rebuilding unaffected code, but also the more
-            build steps and inevitable redundant work (like booting the compiler
-            at all and parsing inputs) those build steps will do.
-        </p>
+      <p>
+        In all, this mechanism is similar to
+        <a
+          href="https://www.typescriptlang.org/docs/handbook/project-references.html"
+          >project references in TypeScript</a
+        >, though I have little familiarity with them — they were added to the
+        language after we built the above. One contrast is that our splits are
+        more fine-grained; in a big project we might have hundreds of thousands
+        of these build steps. There is a tradeoff here, where the more
+        fine-grained the splits get, the more fine-grained your rebuilds can get
+        in terms of not rebuilding unaffected code, but also the more build
+        steps and inevitable redundant work (like booting the compiler at all
+        and parsing inputs) those build steps will do.
+      </p>
 
-        <p>
-            Much like how TypeScript is building this feature, I find many
-            programming languages slowly slide their way towards becoming build
-            systems — witness also whether it's possible to use Rust without
-            Cargo — and though it feels inevitable it is also disappointing,
-            because a language-specific build system rarely captures things like
-            cross-language dependencies, testing, and so on.  (See for example how
-            "go build" captures much of what you want to build with Go, but also
-            that many Go projects end up with a Makefile around it anyway.)  But
-            the question of which layer best captures build problems is always a
-            difficult tradeoff.
-        </p>
+      <p>
+        Much like how TypeScript is building this feature, I find many
+        programming languages slowly slide their way towards becoming build
+        systems — witness also whether it's possible to use Rust without Cargo —
+        and though it feels inevitable it is also disappointing, because a
+        language-specific build system rarely captures things like
+        cross-language dependencies, testing, and so on. (See for example how
+        "go build" captures much of what you want to build with Go, but also
+        that many Go projects end up with a Makefile around it anyway.) But the
+        question of which layer best captures build problems is always a
+        difficult tradeoff.
+      </p>
 
-        <div>
-            <h2>Serialization of build steps</h2>
-        </div>
+      <div>
+        <h2>Serialization of build steps</h2>
+      </div>
 
-        <p>
-            Going back to the example of an app made of widgets, which build steps
-            can run in parallel?  Clearly at least the widgets, which don't depend
-            on each other.  But when target A depends on target B, it seems they
-            must necessarily serialize: we need to wait to finish extracting the
-            d.ts from B before starting to build A.  Another way of saying this is
-            that while it appears siblings in the DAG can build in parallel,
-            parents must wait for children.
-        </p>
+      <p>
+        Going back to the example of an app made of widgets, which build steps
+        can run in parallel? Clearly at least the widgets, which don't depend on
+        each other. But when target A depends on target B, it seems they must
+        necessarily serialize: we need to wait to finish extracting the d.ts
+        from B before starting to build A. Another way of saying this is that
+        while it appears siblings in the DAG can build in parallel, parents must
+        wait for children.
+      </p>
 
-        <p>
-            However, there's a trick: if extracting the API shape is cheap, we can
-            do that up front pass (potentially as build steps that themselves can
-            run in parallel across the whole app), and then we have all the data
-            we need to type check all the targets in parallel, regardless of their
-            interdependencies.  As an existence proof, this pattern already works
-            in C++, where the API shape is available before compilation even
-            starts because humans wrote the header files.  (I describe this more
-            in the "as a warm-up" bit of <a href="">this
-            post</a>.)
-        </p>
+      <p>
+        However, there's a trick: if extracting the API shape is cheap, we can
+        do that up front pass (potentially as build steps that themselves can
+        run in parallel across the whole app), and then we have all the data we
+        need to type check all the targets in parallel, regardless of their
+        interdependencies. As an existence proof, this pattern already works in
+        C++, where the API shape is available before compilation even starts
+        because humans wrote the header files. (I describe this more in the "as
+        a warm-up" bit of <a href="">this post</a>.)
+      </p>
 
-        <p>
-            I believe Bazel uses such a technique for making Java builds more
-            parallel, with a tool called "turbine" that extracts the API shape of
-            Java classes up front.  However, though I see turbine code in the
-            Bazel Git repo I'm unclear how/whether it's actually used.
-        </p>
+      <p>
+        I believe Bazel uses such a technique for making Java builds more
+        parallel, with a tool called "turbine" that extracts the API shape of
+        Java classes up front. However, though I see turbine code in the Bazel
+        Git repo I'm unclear how/whether it's actually used.
+      </p>
 
-        <p>
-            In any case, for TypeScript, there is unfortunately a language feature
-            that prevents doing this: inference of return types.  In TypeScript
-            it's common to write code like
-        </p>
+      <p>
+        In any case, for TypeScript, there is unfortunately a language feature
+        that prevents doing this: inference of return types. In TypeScript it's
+        common to write code like
+      </p>
 
-        <pre>
+      <pre>
             <code>
                 export function f(x: boolean) {
                     return x ? 3 : g();
@@ -304,148 +312,151 @@
             </code>
         </pre>
 
-        <p>
-            and TypeScript will infer the return type of <code>f</code> for you (<a href="https://www.typescriptlang.org/play?#code/KYDwDg9gTgLgBAMwK4DsDGMCWEWIBQgBccARhBADbACGKAlHAN4BQccUwMSUuIcA-HADMcYgHJqYgNzMAvkA">see d.ts
-            output on the
-            Playground</a>).
-            In the limit you need the whole power of the compiler to compute these
-            return types; for example, consider when <code>g()</code> is a function found in
-            another module, and so on.
-        </p>
+      <p>
+        and TypeScript will infer the return type of <code>f</code> for you (<a
+          href="https://www.typescriptlang.org/play?#code/KYDwDg9gTgLgBAMwK4DsDGMCWEWIBQgBccARhBADbACGKAlHAN4BQccUwMSUuIcA-HADMcYgHJqYgNzMAvkA"
+          >see d.ts output on the Playground</a
+        >). In the limit you need the whole power of the compiler to compute
+        these return types; for example, consider when <code>g()</code> is a
+        function found in another module, and so on.
+      </p>
 
-        <p>
-            In other languages, where the compiler does additional work like
-            optimization during codegen, it might still be worth splitting out API
-            extraction from the compile step, but in TypeScript's case I suspect
-            it's about as much work to have it compute these return types as it is
-            to do basically the whole process of compilation, so it appears to me
-            not worth it to split things to make this more parallel.
-        </p>
+      <p>
+        In other languages, where the compiler does additional work like
+        optimization during codegen, it might still be worth splitting out API
+        extraction from the compile step, but in TypeScript's case I suspect
+        it's about as much work to have it compute these return types as it is
+        to do basically the whole process of compilation, so it appears to me
+        not worth it to split things to make this more parallel.
+      </p>
 
-        <p>
-            One idea we've toyed with is mandating that all our code has explicit
-            return types, because it could unlock a lot of parallelism in the
-            build.  I don't understand much about the Flow type checker for
-            JavaScript, but I noticed they <a href="https://medium.com/flow-type/types-first-a-scalable-new-architecture-for-flow-3d8c7ba1d4eb">have recently been doing work around
-            enforcing more type annotations at module
-            boundaries</a>
-            for performance reasons as well.  (I am particularly impressed by how
-            they built language tools to auto-upgrade their users.)  However,
-            requiring return types is a pretty big divergence from how users
-            expect the language to work, so for us it's probably just an idea to
-            keep in the back pocket rather than a definite plan.
-        </p>
+      <p>
+        One idea we've toyed with is mandating that all our code has explicit
+        return types, because it could unlock a lot of parallelism in the build.
+        I don't understand much about the Flow type checker for JavaScript, but
+        I noticed they
+        <a
+          href="https://medium.com/flow-type/types-first-a-scalable-new-architecture-for-flow-3d8c7ba1d4eb"
+          >have recently been doing work around enforcing more type annotations
+          at module boundaries</a
+        >
+        for performance reasons as well. (I am particularly impressed by how
+        they built language tools to auto-upgrade their users.) However,
+        requiring return types is a pretty big divergence from how users expect
+        the language to work, so for us it's probably just an idea to keep in
+        the back pocket rather than a definite plan.
+      </p>
 
-        <div>
-            <h2>Transitive dependencies</h2>
-        </div>
+      <div>
+        <h2>Transitive dependencies</h2>
+      </div>
 
-        <p>
-            In the above, I mentioned that building A.ts requires both B.d.ts and
-            C.d.ts as inputs.  Using B is obvious — A imports it — but you might
-            wonder why C is involved, and the answer is subtle and deep.
-        </p>
+      <p>
+        In the above, I mentioned that building A.ts requires both B.d.ts and
+        C.d.ts as inputs. Using B is obvious — A imports it — but you might
+        wonder why C is involved, and the answer is subtle and deep.
+      </p>
 
-        <p>To start with, suppose B.ts contains code like this:</p>
+      <p>To start with, suppose B.ts contains code like this:</p>
 
-        <p>
-            <code>
-                import {Version} from './C';<br>
-                export function getVersion(): Version { ... }<br>
-            </code>
-        </p>
+      <p>
+        <code>
+          import {Version} from './C';<br />
+          export function getVersion(): Version { ... }<br />
+        </code>
+      </p>
 
-        <p>
-            To type check a user of B, that user must also see the definition of
-            Version, so it must see the definition of C.  And this reasoning works
-            recursively; the topmost target in the tree, the one that imports all
-            the rest, potentially may depend on types from all transitively
-            depended-upon .d.ts files to build.
-        </p>
+      <p>
+        To type check a user of B, that user must also see the definition of
+        Version, so it must see the definition of C. And this reasoning works
+        recursively; the topmost target in the tree, the one that imports all
+        the rest, potentially may depend on types from all transitively
+        depended-upon .d.ts files to build.
+      </p>
 
-        <p>
-            Further, these dependencies may not even follow 'import' statements,
-            due to globals!  Suppose C contains code like:
-        </p>
+      <p>
+        Further, these dependencies may not even follow 'import' statements, due
+        to globals! Suppose C contains code like:
+      </p>
 
-        <p>
-            <code>
-                declare const iAmAGlobal: number;
-            </code>
-        </p>
+      <p>
+        <code> declare const iAmAGlobal: number; </code>
+      </p>
 
-        <p>
-            Per the rules of TypeScript, even if A doesn't import C, and even if B
-            doesn't import C, it's still the case that A needs to see this
-            definition to type check.
-        </p>
+      <p>
+        Per the rules of TypeScript, even if A doesn't import C, and even if B
+        doesn't import C, it's still the case that A needs to see this
+        definition to type check.
+      </p>
 
-        <p>
-            In practice this means that, until recently, we always needed to feed
-            the whole transitive dependency tree of dependencies into the compiler
-            for any compile.  This means that the higher up in the dependency tree
-            a target gets — the more targets it transitively depends upon — the
-            more source code the compiler must process as input. In a bad target
-            we would see a few kb of source and megabytes of transitively loaded
-            d.ts.  Again, to make compilation scale, you need to do something
-            about this, and this is the project I've worked on for the last few
-            months.
-        </p>
+      <p>
+        In practice this means that, until recently, we always needed to feed
+        the whole transitive dependency tree of dependencies into the compiler
+        for any compile. This means that the higher up in the dependency tree a
+        target gets — the more targets it transitively depends upon — the more
+        source code the compiler must process as input. In a bad target we would
+        see a few kb of source and megabytes of transitively loaded d.ts. Again,
+        to make compilation scale, you need to do something about this, and this
+        is the project I've worked on for the last few months.
+      </p>
 
-        <p>
-            One broad approach to solve this would be to "roll up" transitive
-            imports.  When generating the API shape of B, you could imagine you
-            can inline the parts of C that it B uses directly into its output.
-            This would means when building any target, you would only need its
-            <em>directly imported</em> d.ts as input, as those would have inlined their
-            transitive dependencies already.  (I believe a technique like this is
-            used by Go.)
-        </p>
+      <p>
+        One broad approach to solve this would be to "roll up" transitive
+        imports. When generating the API shape of B, you could imagine you can
+        inline the parts of C that it B uses directly into its output. This
+        would means when building any target, you would only need its
+        <em>directly imported</em> d.ts as input, as those would have inlined
+        their transitive dependencies already. (I believe a technique like this
+        is used by Go.)
+      </p>
 
-        <p>
-            In our experience this approach has ended poorly, because these
-            rolled-up intermediates themselves accumulate in size as you work down
-            the DAG, especially in the presence of diamond dependencies.  For
-            example, think back to my initial description of an app comprised of
-            dependencies on multiple screens.  In a world where you rolled up
-            dependencies, each of those screens could include in their extracted
-            API their own redundant copy of the (shared) web framework.  We had a
-            system in Google that worked like this with JavaScript that we are in
-            the process of moving away from due to scaling problems.
-        </p>
+      <p>
+        In our experience this approach has ended poorly, because these
+        rolled-up intermediates themselves accumulate in size as you work down
+        the DAG, especially in the presence of diamond dependencies. For
+        example, think back to my initial description of an app comprised of
+        dependencies on multiple screens. In a world where you rolled up
+        dependencies, each of those screens could include in their extracted API
+        their own redundant copy of the (shared) web framework. We had a system
+        in Google that worked like this with JavaScript that we are in the
+        process of moving away from due to scaling problems.
+      </p>
 
-        <p>
-            Another approach you can imagine taking is some mechanism for
-            "partial" definitions.  For example, in C++ you can forward-declare
-            the Version type, which means users can use the B API and treat
-            Version as opaque.  Then if someone wants to actually use Version they
-            must explicitly import C themselves.  Alas, there currently isn't a
-            good mechanism for this in TypeScript, and — in a change since I last
-            did a lot of C++ at Google — Google's C++ wizards also now recommend
-            against doing this in C++, <a href="https://google.github.io/styleguide/cppguide.html#Forward_Declarations">for interesting
-            reasons</a>.
-        </p>
+      <p>
+        Another approach you can imagine taking is some mechanism for "partial"
+        definitions. For example, in C++ you can forward-declare the Version
+        type, which means users can use the B API and treat Version as opaque.
+        Then if someone wants to actually use Version they must explicitly
+        import C themselves. Alas, there currently isn't a good mechanism for
+        this in TypeScript, and — in a change since I last did a lot of C++ at
+        Google — Google's C++ wizards also now recommend against doing this in
+        C++,
+        <a
+          href="https://google.github.io/styleguide/cppguide.html#Forward_Declarations"
+          >for interesting reasons</a
+        >.
+      </p>
 
-        <div>
-            <h2>Transitive dependencies and transitive imports</h2>
-        </div>
+      <div>
+        <h2>Transitive dependencies and transitive imports</h2>
+      </div>
 
-        <p>
-            A final approach you can take is to observe that, for some long
-            chain of dependencies — A deps on B deps on ... Z — it's likely that
-            at some intermediate target no part of Z was actually exposed to
-            users.  Which is to say, to type check A you probably need B, maybe
-            parts of C, and so on, but likely not every last transitive dependency
-            Z, which might just be used as an internal implementation detail of
-            one of these libraries and not something that is exposed to A.
-        </p>
+      <p>
+        A final approach you can take is to observe that, for some long chain of
+        dependencies — A deps on B deps on ... Z — it's likely that at some
+        intermediate target no part of Z was actually exposed to users. Which is
+        to say, to type check A you probably need B, maybe parts of C, and so
+        on, but likely not every last transitive dependency Z, which might just
+        be used as an internal implementation detail of one of these libraries
+        and not something that is exposed to A.
+      </p>
 
-        <p>
-            To make this more concrete, imagine the code snippet from the previous
-            section instead looked like this:
-        </p>
+      <p>
+        To make this more concrete, imagine the code snippet from the previous
+        section instead looked like this:
+      </p>
 
-        <pre>
+      <pre>
             <code>
                 import {getVersion} from './C';
                 export function getVersionString() {
@@ -454,45 +465,43 @@
             </code>
         </pre>
 
-        <p>
-            Here, users of this module do not interact with any type from C.  In
-            fact, the generated d.ts we use in compilation will reflect that users
-            of this library don't need C to type check; it will look this this,
-            without any import of C:
-        </p>
+      <p>
+        Here, users of this module do not interact with any type from C. In
+        fact, the generated d.ts we use in compilation will reflect that users
+        of this library don't need C to type check; it will look this this,
+        without any import of C:
+      </p>
 
-        <p>
-            <code>
-                declare export function getVersionString(): string;
-            </code>
-        </p>
+      <p>
+        <code> declare export function getVersionString(): string; </code>
+      </p>
 
-        <p>
-            So if you "just" let the compiler follow import statements, which in
-            TypeScript is controlled by the <code>--noResolve</code> flag, it can itself
-            lazily pull in exactly just the modules needed for type checking.  And
-            that solves the bulk of the problem — except for globals.
-        </p>
+      <p>
+        So if you "just" let the compiler follow import statements, which in
+        TypeScript is controlled by the <code>--noResolve</code> flag, it can
+        itself lazily pull in exactly just the modules needed for type checking.
+        And that solves the bulk of the problem — except for globals.
+      </p>
 
-        <p>
-            One way I have come to see globals in terms of type checking is that
-            they are like side effects. The type checker follows import statements
-            to gather definitions of exported symbols, but any place that declares
-            a global has a type system side effect of registering additional
-            symbols.  Another way to see this is that if you have an import
-            statement that imports some symbol, then it's usually safe to remove
-            that import statement if you no longer use the symbol, but that
-            property doesn't hold if the imported module declares a global.
-        </p>
+      <p>
+        One way I have come to see globals in terms of type checking is that
+        they are like side effects. The type checker follows import statements
+        to gather definitions of exported symbols, but any place that declares a
+        global has a type system side effect of registering additional symbols.
+        Another way to see this is that if you have an import statement that
+        imports some symbol, then it's usually safe to remove that import
+        statement if you no longer use the symbol, but that property doesn't
+        hold if the imported module declares a global.
+      </p>
 
-        <p>
-            From that framing, TypeScript has multiple mechanisms for type-level
-            side effects.  One is declaration merging.  This is particularly
-            common in the lit-html / Polymer ecosystem, where code often registers
-            itself to overload the return type of <code>document.createElement()</code>:
-        </p>
+      <p>
+        From that framing, TypeScript has multiple mechanisms for type-level
+        side effects. One is declaration merging. This is particularly common in
+        the lit-html / Polymer ecosystem, where code often registers itself to
+        overload the return type of <code>document.createElement()</code>:
+      </p>
 
-        <pre>
+      <pre>
             <code>
                 declare global {
                     interface HTMLElementTagNameMap {
@@ -502,82 +511,91 @@
             </code>
         </pre>
 
-        <p>
-            Another global-like feature is the <code>declare module 'someString'</code>
-            syntax, which we rely on heavily for our Closure JS interop.
-        </p>
+      <p>
+        Another global-like feature is the
+        <code>declare module 'someString'</code>
+        syntax, which we rely on heavily for our Closure JS interop.
+      </p>
 
-        <p>
-            My solution for these has been a mixture of approaches that probably
-            aren't too interesting for this blog post.  Some approaches include:
-        </p>
+      <p>
+        My solution for these has been a mixture of approaches that probably
+        aren't too interesting for this blog post. Some approaches include:
+      </p>
 
-        <div>
-            <ul>
-                <li>
-                    <p>
-                        manually adding side-effect import statements like <code>import './the-module'</code>, to reflect the type-time side effects;
-                    </p>
-                </li>
+      <div>
+        <ul>
+          <li>
+            <p>
+              manually adding side-effect import statements like
+              <code>import './the-module'</code>, to reflect the type-time side
+              effects;
+            </p>
+          </li>
 
-                <li>
-                    <p>extracting which targets provide globals at compile time and adjusting the dependency graph accordingly;</p>
-                </li>
+          <li>
+            <p>
+              extracting which targets provide globals at compile time and
+              adjusting the dependency graph accordingly;
+            </p>
+          </li>
 
-                <li>
-                    <p>manually tagging targets that expose globals, because they are relatively uncommon.</p>
-                </li>
-            </ul>
-        </div>
+          <li>
+            <p>
+              manually tagging targets that expose globals, because they are
+              relatively uncommon.
+            </p>
+          </li>
+        </ul>
+      </div>
 
-        <p>
-            For our JS interop with <code>declare module</code>, I did some pretty gnarly
-            work to <a href="https://github.com/angular/tsickle/blob/c6b52481e9efc8c8f789a18016b747d6c58403d7/src/clutz.ts#L42-L50">reconstruct the implied
-            imports</a>
-            that I won't go into more here because nearly nobody cares about it
-            except Google.
-        </p>
+      <p>
+        For our JS interop with <code>declare module</code>, I did some pretty
+        gnarly work to
+        <a
+          href="https://github.com/angular/tsickle/blob/c6b52481e9efc8c8f789a18016b747d6c58403d7/src/clutz.ts#L42-L50"
+          >reconstruct the implied imports</a
+        >
+        that I won't go into more here because nearly nobody cares about it
+        except Google.
+      </p>
 
-        <div>
-            <h2>Open source</h2>
-        </div>
+      <div>
+        <h2>Open source</h2>
+      </div>
 
-        <p>
-            You might note that that last link is to code on GitHub.  Historically
-            we've open-sourced most of the relevant code, in part because we
-            publish other open source projects, such as Angular, that use this
-            whole stack of software.  However, as I wrote in <a href="">my post about
-            TypeScript at Google</a>,
-            the world we live in is unfortunately very far away from the
-            non-Google world, and in practice a lot of this code ends up not being
-            useful for others.
-        </p>
+      <p>
+        You might note that that last link is to code on GitHub. Historically
+        we've open-sourced most of the relevant code, in part because we publish
+        other open source projects, such as Angular, that use this whole stack
+        of software. However, as I wrote in
+        <a href="">my post about TypeScript at Google</a>, the world we live in
+        is unfortunately very far away from the non-Google world, and in
+        practice a lot of this code ends up not being useful for others.
+      </p>
 
-        <p>
-            And further, for better or for worse, publishing code on GitHub
-            carries the user expectation that you will address their bug reports
-            or help them, and realistically we just do not have time to do that;
-            we barely have the time to support our own internal users.  So I
-            regret to say that we (barely) ended up not publishing the code of
-            this last work I've done, not out of any particular desire to keep it
-            secret but rather just because it's just too much work.  It is my hope
-            that this blog post, describing the concepts, ends up more useful than
-            the code would have been anyway.
-        </p>
+      <p>
+        And further, for better or for worse, publishing code on GitHub carries
+        the user expectation that you will address their bug reports or help
+        them, and realistically we just do not have time to do that; we barely
+        have the time to support our own internal users. So I regret to say that
+        we (barely) ended up not publishing the code of this last work I've
+        done, not out of any particular desire to keep it secret but rather just
+        because it's just too much work. It is my hope that this blog post,
+        describing the concepts, ends up more useful than the code would have
+        been anyway.
+      </p>
 
-        <div>
-            <h2>Credit</h2>
-        </div>
+      <div>
+        <h2>Credit</h2>
+      </div>
 
-        <p>
-            Though some of the above work is my own invention, a lot of the
-            TypeScript machinery was built before I got involved with it —
-            primarily by <a href="http://mprobst.io/">Martin Probst</a>, <a href="https://alexeagle.github.io/">Alex
-            Eagle</a>, and <a href="https://radokirov.com/">Rado
-            Kirov</a>.
-        </p>
-
+      <p>
+        Though some of the above work is my own invention, a lot of the
+        TypeScript machinery was built before I got involved with it — primarily
+        by <a href="http://mprobst.io/">Martin Probst</a>,
+        <a href="https://alexeagle.github.io/">Alex Eagle</a>, and
+        <a href="https://radokirov.com/">Rado Kirov</a>.
+      </p>
     </main>
-
-</body>
+  </body>
 </html>
