@@ -20,10 +20,6 @@
   color: #555;
 }
 
-.items {
-  margin-top: 15px;
-}
-
 .item-date {
   color: #555;
   padding-right: 20px;
@@ -41,11 +37,21 @@ tr > * {
 
 .link-effect h2 {
   font-weight: normal;
-  margin: 0px;
   font-size: 22px;
 }
 
 .link-effect p {
-  margin: 0px;
+  margin-bottom: 15px;
+}
+
+.header-top-space {
+  margin-top: 15px;
+}
+
+#table div {
+  margin-bottom: 15px;
+}
+
+li {
   margin-bottom: 15px;
 }
