@@ -4,13 +4,16 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="../../../styles/main.css" />
+    <link rel="stylesheet" href="../../../styles/mainHeader.css" />
+    <link rel="stylesheet" href="../../../styles/page.css" />
     <title>Tech Notes: Two surprises in browser crashes</title>
   </head>
   <body>
-    <header>
+    <header class="header-area">
       <div>
         <h1>
-          <a href="./subpages/neugierig.html">neugierig.org: </a>
+          <a href="../../neugierig.html">neugierig.org: </a>
           <a href="">Tech Notes</a>
         </h1>
         <div>
@@ -23,103 +26,104 @@
     </header>
 
     <main>
-      <div>
-        <h2><a href="">Taking a break</a></h2>
-        <span>September 29, 2023</span>
+      <h2 class="sub-title"><a href="">Taking a break</a></h2>
+      <span class="publish-date">September 29, 2023</span>
+
+      <div class="content">
+        <p>I gave Figma a year but it ended up not being quite right for me.</p>
+
+        <p>
+          I've reflected a lot on why that is and I have many complex thoughts
+          on it, but they're hard to communicate well in a way that doesn't come
+          across as griping, and that is not how I feel about it overall.
+          Everyone was extremely kind; the product is very successful; I learned
+          a lot.
+        </p>
+
+        <p>
+          Working on Figma gave me a renewed respect for what it means when
+          talented people go really deep on something. One of my favorite small
+          details in the product is that when you rotate an object, the mouse
+          cursor rotate arrows are angled to match the rotation, which means the
+          mouse cursor itself rotates as you drag. When they built Figma they
+          didn't just implement this, but they also wrote patches for each of
+          Chrome, Firefox, and WebKit to improve cursor rendering(!). (<a
+            href="https://www.figma.com/blog/building-a-professional-design-tool-on-the-web/"
+            >This post</a
+          >
+          has links to them.) Figma is full of stuff like this, where some
+          really smart people spent literally years working on getting small
+          details just right. I had been admiring Figma from afar for years
+          before I joined and my admiration was not misplaced.
+        </p>
+
+        <p>
+          I chose to work at Figma in part because of the tech; see my
+          <a href="./June19.html">recent posts on WebAssembly</a>. It has been
+          cool to draw on random knowledge from all over my career, including
+          <a href="../2011/November09.html">Linux graphics</a>,
+          <a href="../2020/May12.html">build systems</a>,
+          <a
+            href="https://neugierig.org/software/chromium/notes/2011/04/rtl-titles.html"
+            >right to left text</a
+          >, <a href="../../chromiumNotes.html">browser internals</a>, both C++
+          and TypeScript esoterica, and more. Figma is pretty unique in spanning
+          both browser tech and lower level work, and I take pride in having a
+          skill set that spans both of those worlds.
+        </p>
+
+        <p>
+          But more importantly I was there to try out working in a different
+          culture — to learn what experiences of my
+          <a href="../2021/July04.html">long-time-at-one-company</a>
+          career were fixed and what parts were flexible. In retrospect I was so
+          naive! I knew that going in I knew nothing, and that was a large part
+          of the reason to try it, but today I am also amused to think back on
+          what me of one year ago had hoped and expected. For one example: when
+          interviewing it didn't even occur to me to ask if the company used
+          email, though of course the answer to that question has big cultural
+          implications.
+        </p>
+
+        <p>
+          In all, Figma has a lot going for it. What hasn't been working is my
+          personal life. I've been really struggling as a new parent with how to
+          manage parent responsibilities, my job, and still make time for my own
+          goals — even pretty basic stuff like "get enough sleep", "have three
+          meals a day", or "talk to a friend". I ended up perpetually stressed
+          out, unfocused, and on edge. I can see other people are able to handle
+          this and wonder what is wrong with me, and I am embarrassed how the
+          people I worked with at Figma only got to know me as this
+          unreliable/ineffective person that is not how I perceive myself.
+        </p>
+
+        <p>
+          I ultimately decided I needed to make some big life changes and
+          getting back the bulk of my weekdays by quitting my job seemed an
+          appropriately big step. (Just to be clear about it, since it's easy to
+          assume otherwise: Figma's work life balance was extremely reasonable,
+          even generous. It is not "I am exhausted by the startup life", it is
+          "I am exhausted by life".)
+        </p>
+
+        <p>
+          What's next for me is to just take some time unemployed, for myself. I
+          have worked more or less continuously for a long time — including
+          summer jobs through even high school and college. For my last job
+          switch I also (stupidly, in retrospect) didn't schedule much downtime
+          either. With retrospect's insight I think I needed to first prioritize
+          finding a way to work sustainably, without burning out, but I'm not
+          even sure what that would concretely mean for me.
+        </p>
+
+        <p>
+          PS: It is ironic, but my last day at Figma was just days before the
+          Adobe acquisition news. It was as much a surprise to me as a former
+          employee as it was to you, so none of the above is related to that. I
+          have plenty of thoughts on it but I am not especially well informed,
+          nor wise about business, so I will keep them to myself.
+        </p>
       </div>
-
-      <p>I gave Figma a year but it ended up not being quite right for me.</p>
-
-      <p>
-        I've reflected a lot on why that is and I have many complex thoughts on
-        it, but they're hard to communicate well in a way that doesn't come
-        across as griping, and that is not how I feel about it overall. Everyone
-        was extremely kind; the product is very successful; I learned a lot.
-      </p>
-
-      <p>
-        Working on Figma gave me a renewed respect for what it means when
-        talented people go really deep on something. One of my favorite small
-        details in the product is that when you rotate an object, the mouse
-        cursor rotate arrows are angled to match the rotation, which means the
-        mouse cursor itself rotates as you drag. When they built Figma they
-        didn't just implement this, but they also wrote patches for each of
-        Chrome, Firefox, and WebKit to improve cursor rendering(!). (<a
-          href="https://www.figma.com/blog/building-a-professional-design-tool-on-the-web/"
-          >This post</a
-        >
-        has links to them.) Figma is full of stuff like this, where some really
-        smart people spent literally years working on getting small details just
-        right. I had been admiring Figma from afar for years before I joined and
-        my admiration was not misplaced.
-      </p>
-
-      <p>
-        I chose to work at Figma in part because of the tech; see my
-        <a href="./June19.html">recent posts on WebAssembly</a>. It has been
-        cool to draw on random knowledge from all over my career, including
-        <a href="../2011/November09.html">Linux graphics</a>,
-        <a href="../2020/May12.html">build systems</a>,
-        <a
-          href="https://neugierig.org/software/chromium/notes/2011/04/rtl-titles.html"
-          >right to left text</a
-        >, <a href="../../chromiumNotes.html">browser internals</a>, both C++
-        and TypeScript esoterica, and more. Figma is pretty unique in spanning
-        both browser tech and lower level work, and I take pride in having a
-        skill set that spans both of those worlds.
-      </p>
-
-      <p>
-        But more importantly I was there to try out working in a different
-        culture — to learn what experiences of my
-        <a href="../2021/July04.html">long-time-at-one-company</a>
-        career were fixed and what parts were flexible. In retrospect I was so
-        naive! I knew that going in I knew nothing, and that was a large part of
-        the reason to try it, but today I am also amused to think back on what
-        me of one year ago had hoped and expected. For one example: when
-        interviewing it didn't even occur to me to ask if the company used
-        email, though of course the answer to that question has big cultural
-        implications.
-      </p>
-
-      <p>
-        In all, Figma has a lot going for it. What hasn't been working is my
-        personal life. I've been really struggling as a new parent with how to
-        manage parent responsibilities, my job, and still make time for my own
-        goals — even pretty basic stuff like "get enough sleep", "have three
-        meals a day", or "talk to a friend". I ended up perpetually stressed
-        out, unfocused, and on edge. I can see other people are able to handle
-        this and wonder what is wrong with me, and I am embarrassed how the
-        people I worked with at Figma only got to know me as this
-        unreliable/ineffective person that is not how I perceive myself.
-      </p>
-
-      <p>
-        I ultimately decided I needed to make some big life changes and getting
-        back the bulk of my weekdays by quitting my job seemed an appropriately
-        big step. (Just to be clear about it, since it's easy to assume
-        otherwise: Figma's work life balance was extremely reasonable, even
-        generous. It is not "I am exhausted by the startup life", it is "I am
-        exhausted by life".)
-      </p>
-
-      <p>
-        What's next for me is to just take some time unemployed, for myself. I
-        have worked more or less continuously for a long time — including summer
-        jobs through even high school and college. For my last job switch I also
-        (stupidly, in retrospect) didn't schedule much downtime either. With
-        retrospect's insight I think I needed to first prioritize finding a way
-        to work sustainably, without burning out, but I'm not even sure what
-        that would concretely mean for me.
-      </p>
-
-      <p>
-        PS: It is ironic, but my last day at Figma was just days before the
-        Adobe acquisition news. It was as much a surprise to me as a former
-        employee as it was to you, so none of the above is related to that. I
-        have plenty of thoughts on it but I am not especially well informed, nor
-        wise about business, so I will keep them to myself.
-      </p>
     </main>
   </body>
 </html>

@@ -68,3 +68,7 @@ td > a {
 .content > p {
   margin-bottom: 15px;
 }
+
+.code-block {
+  margin-left: 40px;
+}
