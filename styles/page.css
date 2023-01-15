@@ -11,7 +11,8 @@
 }
 
 .sub-title > a:hover,
-.link-effect:hover {
+.link-effect:hover,
+td > a:hover {
   color: #37f;
 }
 
@@ -53,5 +54,17 @@ tr > * {
 }
 
 li {
+  margin-bottom: 15px;
+}
+
+td > a {
+  text-decoration: none;
+  color: black;
+}
+
+.content {
+  margin-top: 15px;
+}
+.content > p {
   margin-bottom: 15px;
 }
