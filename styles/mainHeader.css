@@ -1,25 +1,21 @@
 .header-area {
   background-color: #ddd;
   width: 100%;
-  position: absolute;
-  top: 0;
-  left: 0;
-  padding-bottom: 20px;
-  padding-top: 17px;
+  padding: 17px 0px 17px 85px;
   border-bottom: solid 2px #777;
 }
 
-.header-main-navigation {
-  text-decoration: none;
+.header-area h1 {
   font-weight: normal;
-  color: black;
   font-size: 32px;
+  margin: 0px;
 }
 
-.left-offset > h1 {
-  margin: 0;
+h1 a {
+  text-decoration: none;
+  color: black;
 }
 
-.header-main-navigation:hover {
+h1 a:hover {
   color: #37f;
 }

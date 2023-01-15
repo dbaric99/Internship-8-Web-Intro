@@ -1,5 +1,8 @@
+@import url(../assets/fonts/mainFont.css);
+
 body {
   font-family: "Open Sans", sans-serif;
+  margin: 0px;
 }
 
 a {
@@ -7,15 +10,11 @@ a {
 }
 
 main {
-  position: absolute;
+  position: relative;
   left: 0;
-  top: 110px;
   line-height: 1.5;
-}
-
-main,
-header {
   margin-left: 85px;
+  max-width: 685px;
 }
 
 p {
@@ -23,7 +22,7 @@ p {
 }
 
 footer {
-  position: absolute;
+  position: relative;
   left: 0;
   color: #555;
 }
