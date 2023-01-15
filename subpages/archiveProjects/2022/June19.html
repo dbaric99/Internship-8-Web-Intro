@@ -30,9 +30,10 @@
 
       <p>
         I've now spent roughly a year working with WebAssembly. Much like my
-        <a href="">notes from when I first stepped into TypeScript</a>, here's
-        some "advanced beginner" things I have learned about WebAssembly, with a
-        particular emphasis on browsers and C++.
+        <a href="../2016/February10.html"
+          >notes from when I first stepped into TypeScript</a
+        >, here's some "advanced beginner" things I have learned about
+        WebAssembly, with a particular emphasis on browsers and C++.
       </p>
 
       <blockquote>
@@ -150,11 +151,12 @@
         (short answer: no) is a good, detailed take on the performance question.
         A higher-level way to answer that same question is that in performance
         work, usually
-        <a href="">architectural changes matter more than optimizing loops</a>.
-        With that said, Wasm gives you fairly low-level control, so relative to
-        JS it's pretty ideal for running code where you care about things like
-        efficiency of memory layout, and it's an easier compilation target for
-        other languages.
+        <a href="../2020/May12.html"
+          >architectural changes matter more than optimizing loops</a
+        >. With that said, Wasm gives you fairly low-level control, so relative
+        to JS it's pretty ideal for running code where you care about things
+        like efficiency of memory layout, and it's an easier compilation target
+        for other languages.
       </p>
 
       <p>
@@ -169,8 +171,9 @@
         >
         really changed my perspective in this area, worth your time. Relatedly,
         in
-        <a href="">my n2 experiment</a> I realized that by limiting to "only" 4
-        billion files at a time, I'd halve this size all the graph handles by
+        <a href="../2022/March24.html">my n2 experiment</a> I realized that by
+        limiting to "only" 4 billion files at a time, I'd halve this size all
+        the graph handles by
         <a
           href="https://github.com/evmar/n2/commit/89db31d1fda2d2009e24d66d2bb27b87932b10fc"
           >switching them to 32 bits</a

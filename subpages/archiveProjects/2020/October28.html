@@ -30,12 +30,12 @@
 
       <p>
         I've now spent a few more years on our project to bring TypeScript to
-        Google that <a href="">I wrote about before</a>. As I wrote there,
-        TypeScript itself already works, and our challenges have been primarily
-        around adapting TypeScript to the specifics of our environment. One way
-        in which our apps are different from typical users of TypeScript is
-        their size: how do you make TypeScript scale to projects with millions
-        of lines of code?
+        Google that <a href="../2018/September01.html">I wrote about before</a>.
+        As I wrote there, TypeScript itself already works, and our challenges
+        have been primarily around adapting TypeScript to the specifics of our
+        environment. One way in which our apps are different from typical users
+        of TypeScript is their size: how do you make TypeScript scale to
+        projects with millions of lines of code?
       </p>
 
       <p>
@@ -215,7 +215,7 @@
         benefit is reducing unneeded work: a change to C.ts that doesn't affect
         its exported API will leave C.d.ts unchanged, which means we don't need
         to recheck A or B. (I
-        <a href=""
+        <a href="../2012/July16.html"
           >previously wrote about a similar trick using C++ shared objects</a
         >
         to avoid relinking).
@@ -288,7 +288,7 @@
         interdependencies. As an existence proof, this pattern already works in
         C++, where the API shape is available before compilation even starts
         because humans wrote the header files. (I describe this more in the "as
-        a warm-up" bit of <a href="">this post</a>.)
+        a warm-up" bit of <a href="../2012/July16.html">this post</a>.)
       </p>
 
       <p>
@@ -568,9 +568,10 @@
         we've open-sourced most of the relevant code, in part because we publish
         other open source projects, such as Angular, that use this whole stack
         of software. However, as I wrote in
-        <a href="">my post about TypeScript at Google</a>, the world we live in
-        is unfortunately very far away from the non-Google world, and in
-        practice a lot of this code ends up not being useful for others.
+        <a href="../2018/September01.html">my post about TypeScript at Google</a
+        >, the world we live in is unfortunately very far away from the
+        non-Google world, and in practice a lot of this code ends up not being
+        useful for others.
       </p>
 
       <p>
